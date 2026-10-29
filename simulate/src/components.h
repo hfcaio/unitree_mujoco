@@ -3,8 +3,13 @@
 #include <cmath>
 
 #include <unitree/robot/channel/channel_publisher.hpp>
+#include <unitree/dds_wrapper/common/Publisher.h>
+#include <unitree/dds_wrapper/common/Subscription.h>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
+#include <unitree/idl/hg/MotorCmd_.hpp>
+#include <unitree/idl/hg/MotorState_.hpp>
+#include <unitree/idl/ros2/Point32_.hpp>
 
 #include "bridge_component.h"
 
@@ -80,9 +85,93 @@ private:
     std::unique_ptr<BmsState_t> bmsstate_;
 };
 
+// rt/waistpitchcmd + rt/waistpitchstate: the G1-D waist pitch motor, which is not part of
+// rt/lowcmd / rt/lowstate. Params: `actuator` (MJCF actuator name).
+class WaistPitchComponent : public BridgeComponent
+{
+    using Cmd_t = unitree::robot::SubscriptionBase<unitree_hg::msg::dds_::MotorCmd_>;
+    using State_t = unitree::robot::RealTimePublisher<unitree_hg::msg::dds_::MotorState_>;
+
+public:
+    WaistPitchComponent(mjModel *model, mjData *data, const YAML::Node &params) : BridgeComponent(model, data)
+    {
+        auto name = params["actuator"].as<std::string>();
+        actuator_ = mj_name2id(mj_model_, mjOBJ_ACTUATOR, name.c_str());
+        if (actuator_ < 0) {
+            throw std::invalid_argument("waist_pitch: no actuator named '" + name + "' in the model");
+        }
+        int joint = mj_model_->actuator_trnid[2 * actuator_];
+        q_adr_ = sensorAdrByObj(mjSENS_JOINTPOS, mjOBJ_JOINT, joint);
+        dq_adr_ = sensorAdrByObj(mjSENS_JOINTVEL, mjOBJ_JOINT, joint);
+        tau_adr_ = sensorAdrByObj(mjSENS_JOINTACTFRC, mjOBJ_JOINT, joint);
+        if (q_adr_ < 0 || dq_adr_ < 0 || tau_adr_ < 0) {
+            throw std::invalid_argument("waist_pitch: joint of '" + name +
+                                        "' needs jointpos, jointvel and jointactuatorfrc sensors");
+        }
+        cmd_ = std::make_unique<Cmd_t>("rt/waistpitchcmd");
+        state_ = std::make_unique<State_t>("rt/waistpitchstate");
+    }
+
+    void step() override
+    {
+        {
+            std::lock_guard<std::mutex> lock(cmd_->mutex_);
+            auto &m = cmd_->msg_;
+            mj_data_->ctrl[actuator_] = m.tau() + m.kp() * (m.q() - mj_data_->sensordata[q_adr_]) +
+                                        m.kd() * (m.dq() - mj_data_->sensordata[dq_adr_]);
+        }
+        if (state_->trylock()) {
+            state_->msg_.q() = mj_data_->sensordata[q_adr_];
+            state_->msg_.dq() = mj_data_->sensordata[dq_adr_];
+            state_->msg_.tau_est() = mj_data_->sensordata[tau_adr_];
+            state_->unlockAndPublish();
+        }
+    }
+
+private:
+    int actuator_ = -1;
+    int q_adr_ = -1;
+    int dq_adr_ = -1;
+    int tau_adr_ = -1;
+    std::unique_ptr<Cmd_t> cmd_;
+    std::unique_ptr<State_t> state_;
+};
+
+// rt/hispeed_state (geometry_msgs/Point32): y is the G1-D lifting column height in metres.
+// Params: `sensor` (MJCF sensor that measures the column height, default "lift_pos").
+class HispeedStateComponent : public BridgeComponent
+{
+    using State_t = unitree::robot::RealTimePublisher<geometry_msgs::msg::dds_::Point32_>;
+
+public:
+    HispeedStateComponent(mjModel *model, mjData *data, const YAML::Node &params) : BridgeComponent(model, data)
+    {
+        auto name = params["sensor"] ? params["sensor"].as<std::string>() : std::string("lift_pos");
+        height_adr_ = sensorAdr(name.c_str());
+        if (height_adr_ < 0) {
+            throw std::invalid_argument("hispeed_state: no sensor named '" + name + "' in the model");
+        }
+        state_ = std::make_unique<State_t>("rt/hispeed_state");
+    }
+
+    void step() override
+    {
+        if (state_->trylock()) {
+            state_->msg_.y() = static_cast<float>(mj_data_->sensordata[height_adr_]);
+            state_->unlockAndPublish();
+        }
+    }
+
+private:
+    int height_adr_ = -1;
+    std::unique_ptr<State_t> state_;
+};
+
 inline void RegisterBuiltinComponents()
 {
     auto &registry = ComponentRegistry::instance();
-    registry.add("secondary_imu", [](mjModel *m, mjData *d) { return std::make_unique<SecondaryImuComponent>(m, d); });
-    registry.add("bms_state", [](mjModel *m, mjData *d) { return std::make_unique<BmsStateComponent>(m, d); });
+    registry.add("secondary_imu", [](mjModel *m, mjData *d, const YAML::Node &) { return std::make_unique<SecondaryImuComponent>(m, d); });
+    registry.add("bms_state", [](mjModel *m, mjData *d, const YAML::Node &) { return std::make_unique<BmsStateComponent>(m, d); });
+    registry.add("waist_pitch", [](mjModel *m, mjData *d, const YAML::Node &p) { return std::make_unique<WaistPitchComponent>(m, d, p); });
+    registry.add("hispeed_state", [](mjModel *m, mjData *d, const YAML::Node &p) { return std::make_unique<HispeedStateComponent>(m, d, p); });
 }

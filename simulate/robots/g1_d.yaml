@@ -1,0 +1,28 @@
+# G1-D (wheeled base + lifting column + waist + dual arms), unitree_hg IDL.
+#
+# rt/lowcmd and rt/lowstate keep the 29-motor G1 numbering; the leg slots 0-11 and
+# waist roll/pitch slots 13-14 are unused on this robot. The waist pitch motor has its own
+# topics, and the wheels and the lifting column are not DDS motors (the real robot drives
+# them through the AGV service).
+idl: hg
+motors:
+  12: waist_yaw
+  15: left_shoulder_pitch
+  16: left_shoulder_roll
+  17: left_shoulder_yaw
+  18: left_elbow
+  19: left_wrist_roll
+  20: left_wrist_pitch
+  21: left_wrist_yaw
+  22: right_shoulder_pitch
+  23: right_shoulder_roll
+  24: right_shoulder_yaw
+  25: right_elbow
+  26: right_wrist_roll
+  27: right_wrist_pitch
+  28: right_wrist_yaw
+components:
+  - secondary_imu                                   # rt/secondary_imu
+  - bms_state                                       # rt/lf/bmsstate
+  - {type: waist_pitch, actuator: waist_pitch}      # rt/waistpitchcmd, rt/waistpitchstate
+  - {type: hispeed_state, sensor: lift_pos}         # rt/hispeed_state (y = column height)

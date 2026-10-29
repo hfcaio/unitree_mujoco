@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -13,14 +14,23 @@
 // Per-robot description loaded from simulate/robots/<robot>.yaml:
 //
 //   idl: hg                  # go | hg (optional; omitted = decide from the actuator count)
+//   motors:                  # optional: DDS motor index -> MJCF actuator name.
+//     12: waist_yaw          # Omitted = actuator i is DDS motor i (legacy layout).
 //   components:              # bridge components, see components.h
 //     - secondary_imu
-//     - bms_state
+//     - {type: waist_pitch, actuator: waist_pitch}   # a component with parameters
+struct ComponentSpec
+{
+    std::string type;
+    YAML::Node params;
+};
+
 struct RobotDef
 {
     bool from_file = false;
     int idl_type = param::IDL_AUTO;
-    std::vector<std::string> components;
+    std::map<int, std::string> motors;
+    std::vector<ComponentSpec> components;
 };
 
 inline RobotDef LoadRobotDef(const std::filesystem::path &dir, const std::string &robot)
@@ -43,14 +53,21 @@ inline RobotDef LoadRobotDef(const std::filesystem::path &dir, const std::string
             throw std::invalid_argument(file.string() + ": idl must be 'go' or 'hg', got '" + idl + "'");
         }
     }
+    if (cfg["motors"]) {
+        for (const auto &kv : cfg["motors"]) {
+            def.motors[kv.first.as<int>()] = kv.second.as<std::string>();
+        }
+    }
     if (cfg["components"]) {
         for (const auto &c : cfg["components"]) {
-            auto name = c.as<std::string>();
-            if (!ComponentRegistry::instance().has(name)) {
-                throw std::invalid_argument(file.string() + ": unknown component '" + name +
+            ComponentSpec spec;
+            spec.type = c.IsScalar() ? c.as<std::string>() : c["type"].as<std::string>();
+            if (c.IsMap()) { spec.params = YAML::Node(c); }
+            if (!ComponentRegistry::instance().has(spec.type)) {
+                throw std::invalid_argument(file.string() + ": unknown component '" + spec.type +
                                             "' (available: " + ComponentRegistry::instance().names() + ")");
             }
-            def.components.push_back(name);
+            def.components.push_back(spec);
         }
     }
     return def;

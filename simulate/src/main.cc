@@ -606,16 +606,21 @@ void *UnitreeSdk2BridgeThread(void *arg)
     std::exit(EXIT_FAILURE);
   }
 
-  if (idl_type == param::IDL_HG) {
-    std::cout << "Using unitree_hg DDS IDL for robot " << param::config.robot << std::endl;
-    if (!robot_def.from_file) {
-      // No robots/<robot>.yaml: keep the behaviour every unitree_hg robot had before robot definitions existed
-      robot_def.components = {"secondary_imu", "bms_state"};
+  try {
+    if (idl_type == param::IDL_HG) {
+      std::cout << "Using unitree_hg DDS IDL for robot " << param::config.robot << std::endl;
+      if (!robot_def.from_file) {
+        // No robots/<robot>.yaml: keep the behaviour every unitree_hg robot had before robot definitions existed
+        robot_def.components = {{"secondary_imu", YAML::Node()}, {"bms_state", YAML::Node()}};
+      }
+      interface = std::make_unique<G1Bridge>(m, d, robot_def);
+    } else {
+      std::cout << "Using unitree_go DDS IDL for robot " << param::config.robot << std::endl;
+      interface = std::make_unique<Go2Bridge>(m, d, robot_def);
     }
-    interface = std::make_unique<G1Bridge>(m, d, robot_def.components);
-  } else {
-    std::cout << "Using unitree_go DDS IDL for robot " << param::config.robot << std::endl;
-    interface = std::make_unique<Go2Bridge>(m, d, robot_def.components);
+  } catch (const std::exception& error) {
+    std::cerr << error.what() << std::endl;
+    std::exit(EXIT_FAILURE);
   }
   interface->start();
   

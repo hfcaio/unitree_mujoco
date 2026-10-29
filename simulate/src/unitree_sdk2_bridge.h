@@ -8,12 +8,14 @@
 #include <unitree/dds_wrapper/robots/g1/g1.h>
 
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "bridge_component.h"
 #include "param.h"
+#include "robot_def.h"
 #include "physics_joystick.h"
 
 #define MOTOR_SENSOR_NUM 3
@@ -73,6 +75,55 @@ public:
     }
 
 protected:
+    // One DDS motor <-> MuJoCo actuator, with the sensordata addresses of its q, dq and tau_est.
+    struct MotorBinding
+    {
+        int dds_index;
+        int ctrl;
+        int q_adr;
+        int dq_adr;
+        int tau_adr;
+    };
+    std::vector<MotorBinding> motors_;
+
+    // Legacy layout: actuator i is DDS motor i, and sensordata holds all q, then all dq, then all tau_est.
+    void _bind_motors_by_index()
+    {
+        for (int i = 0; i < num_motor_; i++) {
+            motors_.push_back({i, i, i, i + num_motor_, i + 2 * num_motor_});
+        }
+    }
+
+    // Layout from robots/<robot>.yaml `motors`: DDS motor index -> actuator name. Sensors are found
+    // through the joint the actuator drives, so the model may hold actuators that are not DDS motors.
+    void _bind_motors_by_name(const std::map<int, std::string> &motor_map)
+    {
+        auto adr = [this](int type, int joint) {
+            for (int i = 0; i < mj_model_->nsensor; i++) {
+                if (mj_model_->sensor_type[i] == type && mj_model_->sensor_objtype[i] == mjOBJ_JOINT &&
+                    mj_model_->sensor_objid[i] == joint) {
+                    return mj_model_->sensor_adr[i];
+                }
+            }
+            return -1;
+        };
+        for (const auto &[index, name] : motor_map) {
+            int actuator = mj_name2id(mj_model_, mjOBJ_ACTUATOR, name.c_str());
+            if (actuator < 0) {
+                throw std::invalid_argument("motors: no actuator named '" + name + "' (motor " +
+                                            std::to_string(index) + ")");
+            }
+            int joint = mj_model_->actuator_trnid[2 * actuator];
+            MotorBinding b{index, actuator, adr(mjSENS_JOINTPOS, joint), adr(mjSENS_JOINTVEL, joint),
+                           adr(mjSENS_JOINTACTFRC, joint)};
+            if (b.q_adr < 0 || b.dq_adr < 0 || b.tau_adr < 0) {
+                throw std::invalid_argument("motors: the joint of actuator '" + name +
+                                            "' needs jointpos, jointvel and jointactuatorfrc sensors");
+            }
+            motors_.push_back(b);
+        }
+    }
+
     int num_motor_ = 0;
     int dim_motor_sensor_ = 0;
 
@@ -135,17 +186,22 @@ using HighState_t = unitree::robot::go2::publisher::SportModeState;
 using WirelessController_t = unitree::robot::go2::publisher::WirelessController;
 
 public:
-    RobotBridge(mjModel *model, mjData *data, const std::vector<std::string> &components = {})
+    RobotBridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef())
     : UnitreeSDK2BridgeBase(model, data)
     {
+        if (def.motors.empty()) {
+            _bind_motors_by_index();
+        } else {
+            _bind_motors_by_name(def.motors);
+        }
         lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
         lowstate = std::make_unique<LowState_t>();
         lowstate->joystick = joystick;
         highstate = std::make_unique<HighState_t>();
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
-        for (const auto &name : components) {
-            components_.push_back(ComponentRegistry::instance().create(name, model, data));
+        for (const auto &spec : def.components) {
+            components_.push_back(ComponentRegistry::instance().create(spec.type, model, data, spec.params));
         }
     }
 
@@ -162,20 +218,20 @@ public:
         // lowcmd
         {
             std::lock_guard<std::mutex> lock(lowcmd->mutex_);
-            for(int i(0); i<num_motor_; i++) {
-                auto & m = lowcmd->msg_.motor_cmd()[i];
-                mj_data_->ctrl[i] = m.tau() +
-                                    m.kp() * (m.q() - mj_data_->sensordata[i]) +
-                                    m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+            for(const auto & b : motors_) {
+                auto & m = lowcmd->msg_.motor_cmd()[b.dds_index];
+                mj_data_->ctrl[b.ctrl] = m.tau() +
+                                         m.kp() * (m.q() - mj_data_->sensordata[b.q_adr]) +
+                                         m.kd() * (m.dq() - mj_data_->sensordata[b.dq_adr]);
             }
         }
 
         // lowstate
         if(lowstate->trylock()) {
-            for(int i(0); i<num_motor_; i++) {
-                lowstate->msg_.motor_state()[i].q() = mj_data_->sensordata[i];
-                lowstate->msg_.motor_state()[i].dq() = mj_data_->sensordata[i + num_motor_];
-                lowstate->msg_.motor_state()[i].tau_est() = mj_data_->sensordata[i + 2 * num_motor_];
+            for(const auto & b : motors_) {
+                lowstate->msg_.motor_state()[b.dds_index].q() = mj_data_->sensordata[b.q_adr];
+                lowstate->msg_.motor_state()[b.dds_index].dq() = mj_data_->sensordata[b.dq_adr];
+                lowstate->msg_.motor_state()[b.dds_index].tau_est() = mj_data_->sensordata[b.tau_adr];
             }
             
             if(imu_quat_adr_ >= 0) {
@@ -248,8 +304,8 @@ using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree
 class G1Bridge : public RobotBridge<unitree::robot::g1::subscription::LowCmd, unitree::robot::g1::publisher::LowState>
 {
 public:
-    G1Bridge(mjModel *model, mjData *data, const std::vector<std::string> &components = {})
-    : RobotBridge(model, data, components)
+    G1Bridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef())
+    : RobotBridge(model, data, def)
     {
         if (param::config.robot.find("g1") != std::string::npos) {
             auto* g1_lowstate = dynamic_cast<unitree::robot::g1::publisher::LowState*>(lowstate.get());

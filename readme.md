@@ -183,6 +183,14 @@ components:
   - secondary_imu  # rt/secondary_imu
   - bms_state      # rt/lf/bmsstate
 ```
+A `motors:` map (`DDS motor index: actuator name`) lets a model hold actuators that are not DDS motors, such as the G1-D wheels and lifting column; without it, actuator `i` is DDS motor `i`. A component can take parameters, e.g. `- {type: waist_pitch, actuator: waist_pitch}`.
+
+### G1-D
+```bash
+./unitree_mujoco -r g1_d -s scene.xml
+```
+Model converted from `unitreerobotics/unitree_ros` (`g1_d_description`), without hands (hand mount sites: `left_hand_mount`, `right_hand_mount`). Topics: `rt/lowcmd` / `rt/lowstate` (29-motor G1 numbering: waist yaw = 12, arms = 15-28, legs unused), `rt/waistpitchcmd` / `rt/waistpitchstate`, `rt/hispeed_state` (`y` = column height in m), `rt/secondary_imu`, `rt/lf/bmsstate`, `rt/sportmodestate`. The wheels and the column are not DDS motors on the real robot (they use the `agv` service, not simulated yet); in the viewer you can drive the `left_wheel`, `right_wheel` and `lift` actuators with the control sliders. The four small caster spheres under the chassis are a stand-in so the base stays upright.
+
 Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h`.
 
 ### Python Simulator

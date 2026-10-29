@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mujoco/mujoco.h>
+#include <yaml-cpp/yaml.h>
 
 #include <functional>
 #include <map>
@@ -30,6 +31,18 @@ protected:
         return id >= 0 ? mj_model_->sensor_adr[id] : -1;
     }
 
+    // Start address in sensordata of the first sensor of `type` attached to object `objid`, or -1.
+    int sensorAdrByObj(int type, int objtype, int objid) const
+    {
+        for (int i = 0; i < mj_model_->nsensor; i++) {
+            if (mj_model_->sensor_type[i] == type && mj_model_->sensor_objtype[i] == objtype &&
+                mj_model_->sensor_objid[i] == objid) {
+                return mj_model_->sensor_adr[i];
+            }
+        }
+        return -1;
+    }
+
     mjModel *mj_model_;
     mjData *mj_data_;
 };
@@ -37,7 +50,7 @@ protected:
 class ComponentRegistry
 {
 public:
-    using Factory = std::function<std::unique_ptr<BridgeComponent>(mjModel *, mjData *)>;
+    using Factory = std::function<std::unique_ptr<BridgeComponent>(mjModel *, mjData *, const YAML::Node &)>;
 
     static ComponentRegistry &instance()
     {
@@ -58,13 +71,14 @@ public:
         return out;
     }
 
-    std::unique_ptr<BridgeComponent> create(const std::string &name, mjModel *model, mjData *data) const
+    std::unique_ptr<BridgeComponent> create(const std::string &name, mjModel *model, mjData *data,
+                                            const YAML::Node &params = YAML::Node()) const
     {
         auto it = factories_.find(name);
         if (it == factories_.end()) {
             throw std::invalid_argument("unknown bridge component '" + name + "' (available: " + names() + ")");
         }
-        return it->second(model, data);
+        return it->second(model, data, params);
     }
 
 private:
