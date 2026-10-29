@@ -35,6 +35,7 @@
 #include "unitree_sdk2_bridge.h"
 #include "param.h"
 #include "components.h"
+#include "robot_compose.h"
 #include "robot_def.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
@@ -85,6 +86,9 @@ public:
   std::vector<double> f_ = {0, 0, 0};
 };
 inline ElasticBand elastic_band;
+
+// simulate/robots/<robot>.yaml, loaded in main() before the model (its attachments shape the model)
+RobotDef robot_def;
 
 
 namespace
@@ -291,6 +295,11 @@ namespace
       {
         mju::strcpy_arr(loadError, "could not load binary model");
       }
+    }
+    else if (!robot_def.attachments.empty() && param::config.robot_scene == filename)
+    {
+      // the robot's scene with its component models (hands, ...) attached, see robot_compose.h
+      mnew = ComposeModel(filename, robot_def.attachments, loadError, kErrorLength);
     }
     else
     {
@@ -596,11 +605,9 @@ void *UnitreeSdk2BridgeThread(void *arg)
 
   std::unique_ptr<UnitreeSDK2BridgeBase> interface = nullptr;
   int idl_type = param::IDL_AUTO;
-  RobotDef robot_def;
   try {
-    RegisterBuiltinComponents();
-    robot_def = LoadRobotDef(param::config.robot_def_dir, param::config.robot);
-    idl_type = param::ResolveIdlType(param::config.robot, m->nu, param::config.idl_type, robot_def.idl_type);
+    idl_type = param::ResolveIdlType(param::config.robot, robot_def.motorCount(m->nu), param::config.idl_type,
+                                     robot_def.idl_type);
   } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
     std::exit(EXIT_FAILURE);
@@ -698,8 +705,17 @@ int main(int argc, char **argv)
   param::config.load_from_yaml(proj_dir / "config.yaml");
   param::helper(argc, argv);
   param::config.robot_def_dir = proj_dir / "robots";
+  auto robots_dir = proj_dir.parent_path() / "unitree_robots";
+  try {
+    RegisterBuiltinComponents();
+    robot_def = LoadRobotDef(param::config.robot_def_dir, param::config.robot, robots_dir / "components");
+  } catch (const std::exception& error) {
+    std::cerr << error.what() << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
   if(param::config.robot_scene.is_relative()) {
-    param::config.robot_scene = proj_dir.parent_path() / "unitree_robots" / param::config.robot / param::config.robot_scene;
+    auto scene_dir = robot_def.scene_dir.empty() ? param::config.robot : robot_def.scene_dir;
+    param::config.robot_scene = robots_dir / scene_dir / param::config.robot_scene;
   }
 
   // simulate object encapsulates the UI
