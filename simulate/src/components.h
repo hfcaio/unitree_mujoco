@@ -14,6 +14,7 @@
 #include <unitree/idl/ros2/Point32_.hpp>
 
 #include "bridge_component.h"
+#include "brainco_hand.h"
 
 // rt/secondary_imu: torso IMU read from the secondary_imu_* sensors (G1).
 class SecondaryImuComponent : public BridgeComponent
@@ -266,5 +267,6 @@ inline void RegisterBuiltinComponents()
     registry.add("waist_pitch", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<WaistPitchComponent>(m, d, p); });
     registry.add("hispeed_state", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<HispeedStateComponent>(m, d, p); });
     registry.add("lf_lowstate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfLowStateComponent>(m, d, p, c); });
+    registry.add("brainco_hand", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<BraincoHandComponent>(m, d, p); });
     registry.add("lf_sportmodestate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfSportModeStateComponent>(m, d, p, c); });
 }

@@ -1,0 +1,76 @@
+# G1 (29 dof) with BrainCo Revo2 dexterous hands, unitree_hg IDL.
+#
+#   ./unitree_mujoco -r g1_brainco -s scene_29dof.xml
+#
+# The body is the plain G1 model (scenes from unitree_robots/g1); the hands are attached at load
+# time (see simulate/src/robot_compose.h). Mounting from unitree_ros
+# robots/g1_with_brainco_hand/g1_29dof_mode_15_brainco_hand.urdf: <side>_base_link sits at
+# x = 0.0591 on <side>_wrist_yaw_link, the flange (<side>_base2_link) at x = 0.0415, and the wrist
+# yaw link loses the rubber hand (its inertial becomes the URDF's).
+scene_dir: g1
+idl: hg
+# The hands add actuators and sensors, so the G1 motors are mapped by name (same numbering as rt/lowcmd).
+motors:
+  0: left_hip_pitch
+  1: left_hip_roll
+  2: left_hip_yaw
+  3: left_knee
+  4: left_ankle_pitch
+  5: left_ankle_roll
+  6: right_hip_pitch
+  7: right_hip_roll
+  8: right_hip_yaw
+  9: right_knee
+  10: right_ankle_pitch
+  11: right_ankle_roll
+  12: waist_yaw
+  13: waist_roll
+  14: waist_pitch
+  15: left_shoulder_pitch
+  16: left_shoulder_roll
+  17: left_shoulder_yaw
+  18: left_elbow
+  19: left_wrist_roll
+  20: left_wrist_pitch
+  21: left_wrist_yaw
+  22: right_shoulder_pitch
+  23: right_shoulder_roll
+  24: right_shoulder_yaw
+  25: right_elbow
+  26: right_wrist_roll
+  27: right_wrist_pitch
+  28: right_wrist_yaw
+attachments:
+  # components/brainco_revo2/left.xml, names prefixed "left_" (left_index, left_index_pos, ...)
+  - type: brainco_revo2
+    side: left
+    mount: left_wrist_yaw_link
+    pos: [0.0591, 0, 0]
+    rpy: [-1.570796326, 0, -1.570796326]
+    remove_mesh_geoms: [left_rubber_hand]
+    mount_inertial:
+      mass: 0.08457647
+      pos: [0.02200381568, 0.00049485096, 0.00053861123]
+      fullinertia: [4.929128828e-05, 5.973338134e-05, 3.928083826e-05, -4.5735494e-07, 4.45867591e-06, 4.3217198e-07]
+  - {model: brainco_revo2/g1_adapter_left.xml, side: left, mount: left_wrist_yaw_link, pos: [0.0415, 0, 0]}
+  - type: brainco_revo2
+    side: right
+    mount: right_wrist_yaw_link
+    pos: [0.0591, 0, 0]
+    rpy: [1.570796326, 0, 1.570796326]
+    remove_mesh_geoms: [right_rubber_hand]
+    mount_inertial:
+      mass: 0.08457647
+      pos: [0.02200381568, -0.00049485096, 0.00053861123]
+      fullinertia: [4.929128828e-05, 5.973338134e-05, 3.928083826e-05, 4.5735494e-07, 4.45867591e-06, -4.3217198e-07]
+  - {model: brainco_revo2/g1_adapter_right.xml, side: right, mount: right_wrist_yaw_link, pos: [0.0415, 0, 0]}
+components:
+  - secondary_imu                       # rt/secondary_imu
+  - lf_lowstate                         # rt/lf/lowstate
+  - lf_sportmodestate                   # rt/lf/sportmodestate
+  - bms_state                           # rt/lf/bmsstate
+  # rt/brainco/<side>/{cmd,state} as brainco_hand_service, plus rt/brainco/<side>/touch.
+  # Params: side, prefix (default <side>_), topic (default rt/brainco/<side>), hz (100), touch (true),
+  # max_velocity (6 values, rad/s)
+  - {type: brainco_hand, side: left}
+  - {type: brainco_hand, side: right}

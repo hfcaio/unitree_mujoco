@@ -17,6 +17,7 @@
 - `SportModeState`: Robot position and velocity data
 - `IMUState`: Torso IMU state at `rt/secondary_imu` topic (G1 only)
 - `rt/lf/lowstate` (`LowState`) and `rt/lf/sportmodestate` (`SportModeState`): the low-frequency variants of `rt/lowstate` and `rt/sportmodestate` (ROS 2: `/lf/lowstate`, `/lf/sportmodestate`), published for robots whose definition lists the `lf_lowstate` / `lf_sportmodestate` components (Go2, G1, G1-D), by default every 10th bridge tick
+- `rt/brainco/{left,right}/cmd` (`unitree_go::MotorCmds_`), `rt/brainco/{left,right}/state` (`unitree_go::MotorStates_`) and `rt/brainco/{left,right}/touch` (`unitree_hg::PressSensorState_`, simulator only): BrainCo Revo2 hands on the G1 (`-r g1_brainco`), see [G1 with BrainCo hands](#g1-with-brainco-revo2-hands)
 
 Note:
 1. The numbering of the motors corresponds to the actual robot hardware. Specific details can be found in the [Unitree documentation](https://support.unitree.com/home/zh/developer).
@@ -195,6 +196,46 @@ A `motors:` map (`DDS motor index: actuator name`) lets a model hold actuators t
 ./unitree_mujoco -r g1_d -s scene.xml
 ```
 Model converted from `unitreerobotics/unitree_ros` (`g1_d_description`), without hands (hand mount sites: `left_hand_mount`, `right_hand_mount`). Topics: `rt/lowcmd` / `rt/lowstate` (29-motor G1 numbering: waist yaw = 12, arms = 15-28, legs unused), `rt/waistpitchcmd` / `rt/waistpitchstate`, `rt/hispeed_state` (`y` = column height in m), `rt/secondary_imu`, `rt/lf/bmsstate`, `rt/lf/lowstate`, `rt/sportmodestate`, `rt/lf/sportmodestate`. The wheels and the column are not DDS motors on the real robot (they use the `agv` service, not simulated yet); in the viewer you can drive the `left_wheel`, `right_wheel` and `lift` actuators with the control sliders. The four small caster spheres under the chassis are a stand-in so the base stays upright.
+
+### G1 with BrainCo Revo2 hands
+```bash
+./unitree_mujoco -r g1_brainco -s scene_29dof.xml
+```
+`simulate/robots/g1_brainco.yaml` uses the plain G1 scenes (`scene_dir: g1`, so `-r g1 -s scene_29dof.xml` is unchanged) and attaches a BrainCo Revo2 hand to each wrist when the model is loaded (see [Model composition](#model-composition-attachments)). The G1 motors keep their numbering on `rt/lowcmd` / `rt/lowstate` (explicit `motors:` map) and all G1 topics are as for `-r g1`. The hands use the topics of [brainco_hand_service](https://github.com/unitreerobotics/brainco_hand_service), the service the real G1 runs for these hands:
+
+| Topic | Type | Content |
+|---|---|---|
+| `rt/brainco/<side>/cmd` | `unitree_go::msg::dds_::MotorCmds_` | 6 `cmds`, order `[Thumb, ThumbAux, Index, Middle, Ring, Pinky]`; `q` in [0, 1] (0 open, 1 closed), `dq` in [0, 1] speed (fraction of the finger's max speed; 1 until the first command); other fields ignored |
+| `rt/brainco/<side>/state` | `unitree_go::msg::dds_::MotorStates_` | 6 `states`, 100 Hz: `q` in [0, 1], `dq` in [-1, 1] (fraction of max speed, + = closing), `tau_est` in [-1, 1] (actuator force / force limit, the real service reports current / max); simulator extras: `q_raw` = joint angle (rad), `dq_raw` = joint velocity (rad/s) |
+| `rt/brainco/<side>/touch` | `unitree_hg::msg::dds_::PressSensorState_` | simulator only, 100 Hz: `pressure[0..4]` normal force (N) and `pressure[5..9]` tangential force (N) on the fingertip pads `[Thumb, Index, Middle, Ring, Pinky]` |
+
+ROS 2 clients see them as `/brainco/<side>/cmd` etc. with the `unitree_go` / `unitree_hg` message packages of unitree_ros2. In the model, `Thumb` is the thumb flexion joint (`thumb_proximal_joint`), `ThumbAux` the thumb rotation (`thumb_metacarpal_joint`) and each finger's distal joint follows its proximal joint (MuJoCo joint equality with the URDF mimic ratio). A normalized position maps linearly onto the joint range of the Revo2 URDF (`thumb` 0-1.047, `thumb_aux` 0-1.553, fingers 0-1.41 rad).
+
+Component parameters (`components:` entry `{type: brainco_hand, side: left}`): `side` (required), `prefix` (names of the attached hand's elements, default `<side>_`), `topic` (default `rt/brainco/<side>`), `hz` (state/touch rate, default 100), `touch` (default true), `max_velocity` (6 values in rad/s, default from the URDF: 2.5303, 2.6175, 2.2685 x4).
+
+Sources and what was assumed:
+- Topics, types, finger order, [0, 1] normalization, `dq` = speed, 100 Hz: `brainco_hand_service` `main.cpp` / `test/test_brainco_hand_server.cpp` (`stark_set_finger_unit_mode(..., FINGER_UNIT_MODE_NORMALIZED)`, `include/stark-sdk.h`: positions 0-1000 with 0 = open, speeds/currents -1000..1000 with + = closing). That the normalized range is the full URDF joint range and maps linearly is an assumption.
+- The service reads no tactile data, and neither do the ROS 2 nodes of [brainco_hand_ros2](https://github.com/BrainCoTech/brainco_hand_ros2) (its ros2_control interface exposes only position/velocity; the EtherCAT driver reads touch registers but only logs them). The Revo2 touch version measures per finger a normal force, a tangential force and its direction (`stark-sdk.h` `CTouchFingerItem`, 0.01 N units). The simulator publishes normal and tangential force in N on `rt/brainco/<side>/touch` with the SDK-shipped `PressSensorState_` type (the Dex3-1 hand's tactile type), so no new IDL is needed; direction, proximity and status are not simulated. This topic is a simulator extension: no real robot publishes it.
+- The ROS 2 interface of brainco_hand_ros2 (`/<side>_revo2_hand_controller/joint_trajectory`, `/joint_states`) is not implemented: it is not what the G1 uses, and its message types are not shipped by unitree_sdk2.
+- Dynamics (position servo gain, joint damping/armature, pad friction) are tuning values, not measured; the force limits are the URDF `effort` values.
+
+The hand model is `unitree_robots/components/brainco_revo2/{left,right}.xml`, converted from [BrainCoTech/revo2_description](https://github.com/BrainCoTech/revo2_description) v1.1.1 (Apache-2.0, `LICENSE` in that directory; kinematics, limits, masses and mimic ratios as in the URDF, meshes decimated to about 2 MB for both hands). Each fingertip has a `touch` sensor and a `contact` sensor on a box site around its tactile pad. The wrist mounting (hand base 0.0591 m from the wrist yaw joint, the wrist flange `g1_adapter_<side>.xml`, the wrist yaw link inertia without the rubber hand) comes from `unitree_ros` `robots/g1_with_brainco_hand`.
+
+### Model composition (attachments)
+A robot definition can attach component models (hands, arms, ...) to its scene at load time:
+```yaml
+scene_dir: g1                   # optional: -s scenes come from unitree_robots/g1 instead of unitree_robots/<robot>
+attachments:
+  - type: brainco_revo2         # model unitree_robots/components/<type>/<side>.xml (<type>/<type>.xml without side)
+    side: left                  # default name prefix "<side>_"; or set prefix/suffix
+    mount: left_wrist_yaw_link  # body or site of the scene
+    pos: [0.0591, 0, 0]         # optional pose of the component in the mount frame
+    rpy: [-1.570796326, 0, -1.570796326]   # URDF convention; or quat: [w, x, y, z]
+    remove_mesh_geoms: [left_rubber_hand]  # optional: delete the scene's geoms using these meshes
+    mount_inertial: {mass: 0.0846, pos: [...], fullinertia: [ixx, iyy, izz, ixy, ixz, iyz]}  # optional
+  - {model: brainco_revo2/g1_adapter_left.xml, side: left, mount: left_wrist_yaw_link, pos: [0.0415, 0, 0]}
+```
+The simulator parses the scene and each component with MuJoCo's `mjSpec` API, attaches the first body of the component (with its actuators, sensors, equalities, contact excludes, assets and defaults) via `mjs_attach` under the prefix, and compiles (`simulate/src/robot_compose.h`). So actuator `index` of the left hand becomes `left_index`, sensor `index_touch` becomes `left_index_touch`; components look elements up by these names. Mesh paths of a component resolve against its own file's `meshdir`. A later attachment can mount on a body added by an earlier one. Robots without `attachments` are loaded with `mj_loadXML` as before. Because attachments add actuators, a robot with attachments needs a `motors:` map for its DDS motors. Reloading the model from the viewer rebuilds the same composition; a different file dropped on the viewer is loaded as is.
 
 Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h`.
 
