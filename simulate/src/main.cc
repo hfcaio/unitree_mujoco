@@ -34,6 +34,8 @@
 #include "array_safety.h"
 #include "unitree_sdk2_bridge.h"
 #include "param.h"
+#include "components.h"
+#include "robot_def.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 
@@ -594,19 +596,26 @@ void *UnitreeSdk2BridgeThread(void *arg)
 
   std::unique_ptr<UnitreeSDK2BridgeBase> interface = nullptr;
   int idl_type = param::IDL_AUTO;
+  RobotDef robot_def;
   try {
-    idl_type = param::ResolveIdlType(param::config.robot, m->nu, param::config.idl_type);
-  } catch (const std::invalid_argument& error) {
+    RegisterBuiltinComponents();
+    robot_def = LoadRobotDef(param::config.robot_def_dir, param::config.robot);
+    idl_type = param::ResolveIdlType(param::config.robot, m->nu, param::config.idl_type, robot_def.idl_type);
+  } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
   if (idl_type == param::IDL_HG) {
     std::cout << "Using unitree_hg DDS IDL for robot " << param::config.robot << std::endl;
-    interface = std::make_unique<G1Bridge>(m, d);
+    if (!robot_def.from_file) {
+      // No robots/<robot>.yaml: keep the behaviour every unitree_hg robot had before robot definitions existed
+      robot_def.components = {"secondary_imu", "bms_state"};
+    }
+    interface = std::make_unique<G1Bridge>(m, d, robot_def.components);
   } else {
     std::cout << "Using unitree_go DDS IDL for robot " << param::config.robot << std::endl;
-    interface = std::make_unique<Go2Bridge>(m, d);
+    interface = std::make_unique<Go2Bridge>(m, d, robot_def.components);
   }
   interface->start();
   
@@ -683,6 +692,7 @@ int main(int argc, char **argv)
   std::filesystem::path proj_dir = std::filesystem::path(getExecutableDir()).parent_path();
   param::config.load_from_yaml(proj_dir / "config.yaml");
   param::helper(argc, argv);
+  param::config.robot_def_dir = proj_dir / "robots";
   if(param::config.robot_scene.is_relative()) {
     param::config.robot_scene = proj_dir.parent_path() / "unitree_robots" / param::config.robot / param::config.robot_scene;
   }

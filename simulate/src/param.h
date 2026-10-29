@@ -15,7 +15,8 @@ constexpr int IDL_HG = 1;
 constexpr int IDL_GO_MOTOR_LIMIT = 20;
 constexpr int IDL_HG_MOTOR_LIMIT = 35;
 
-inline int ResolveIdlType(const std::string &robot, int actuator_count, int configured_idl_type)
+inline int ResolveIdlType(const std::string &robot, int actuator_count, int configured_idl_type,
+                          int robot_def_idl_type = IDL_AUTO)
 {
     if (configured_idl_type != IDL_AUTO &&
         configured_idl_type != IDL_GO &&
@@ -25,6 +26,10 @@ inline int ResolveIdlType(const std::string &robot, int actuator_count, int conf
     }
 
     int idl_type = configured_idl_type;
+    if (idl_type == IDL_AUTO)
+    {
+        idl_type = robot_def_idl_type;
+    }
     if (idl_type == IDL_AUTO)
     {
         idl_type = robot == "as2" || actuator_count > IDL_GO_MOTOR_LIMIT ? IDL_HG : IDL_GO;
@@ -46,6 +51,7 @@ inline struct SimulationConfig
 {
     std::string robot;
     std::filesystem::path robot_scene;
+    std::filesystem::path robot_def_dir; // simulate/robots, holds <robot>.yaml
 
     int domain_id;
     std::string interface;

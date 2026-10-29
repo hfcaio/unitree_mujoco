@@ -6,11 +6,13 @@
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/dds_wrapper/robots/g1/g1.h>
-#include <unitree/idl/hg/BmsState_.hpp>
-#include <unitree/idl/hg/IMUState_.hpp>
 
 #include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
 
+#include "bridge_component.h"
 #include "param.h"
 #include "physics_joystick.h"
 
@@ -84,10 +86,6 @@ protected:
     int frame_pos_adr_ = -1;
     int frame_vel_adr_ = -1;
 
-    int secondary_imu_quat_adr_ = -1;
-    int secondary_imu_gyro_adr_ = -1;
-    int secondary_imu_acc_adr_ = -1;
-
     std::shared_ptr<unitree::common::UnitreeJoystick> joystick = nullptr;
 
     void _check_sensor()
@@ -127,24 +125,6 @@ protected:
         if (sensor_id >= 0) {
             frame_vel_adr_ = mj_model_->sensor_adr[sensor_id];
         }
-
-        // Secondary IMU quaternion
-        sensor_id = mj_name2id(mj_model_, mjOBJ_SENSOR, "secondary_imu_quat");
-        if (sensor_id >= 0) {
-            secondary_imu_quat_adr_ = mj_model_->sensor_adr[sensor_id];
-        }
-
-        // Secondary IMU gyroscope
-        sensor_id = mj_name2id(mj_model_, mjOBJ_SENSOR, "secondary_imu_gyro");
-        if (sensor_id >= 0) {
-            secondary_imu_gyro_adr_ = mj_model_->sensor_adr[sensor_id];
-        }
-
-        // Secondary IMU accelerometer
-        sensor_id = mj_name2id(mj_model_, mjOBJ_SENSOR, "secondary_imu_acc");
-        if (sensor_id >= 0) {
-            secondary_imu_acc_adr_ = mj_model_->sensor_adr[sensor_id];
-        }
     }
 };
 
@@ -155,7 +135,8 @@ using HighState_t = unitree::robot::go2::publisher::SportModeState;
 using WirelessController_t = unitree::robot::go2::publisher::WirelessController;
 
 public:
-    RobotBridge(mjModel *model, mjData *data) : UnitreeSDK2BridgeBase(model, data)
+    RobotBridge(mjModel *model, mjData *data, const std::vector<std::string> &components = {})
+    : UnitreeSDK2BridgeBase(model, data)
     {
         lowcmd = std::make_shared<LowCmd_t>("rt/lowcmd");
         lowstate = std::make_unique<LowState_t>();
@@ -163,6 +144,9 @@ public:
         highstate = std::make_unique<HighState_t>();
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
+        for (const auto &name : components) {
+            components_.push_back(ComponentRegistry::instance().create(name, model, data));
+        }
     }
 
     void start()
@@ -243,6 +227,10 @@ public:
         if(wireless_controller->joystick) {
             wireless_controller->unlockAndPublish();
         }
+        // robot components (secondary imu, bms, ...)
+        for (auto &component : components_) {
+            component->step();
+        }
     }
 
     std::unique_ptr<HighState_t> highstate;
@@ -252,6 +240,7 @@ public:
     
 private:
     unitree::common::RecurrentThreadPtr thread_;
+    std::vector<std::unique_ptr<BridgeComponent>> components_;
 };
 
 using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree::robot::go2::publisher::LowState>;
@@ -259,7 +248,8 @@ using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree
 class G1Bridge : public RobotBridge<unitree::robot::g1::subscription::LowCmd, unitree::robot::g1::publisher::LowState>
 {
 public:
-    G1Bridge(mjModel *model, mjData *data) : RobotBridge(model, data)
+    G1Bridge(mjModel *model, mjData *data, const std::vector<std::string> &components = {})
+    : RobotBridge(model, data, components)
     {
         if (param::config.robot.find("g1") != std::string::npos) {
             auto* g1_lowstate = dynamic_cast<unitree::robot::g1::publisher::LowState*>(lowstate.get());
@@ -268,56 +258,5 @@ public:
                 g1_lowstate->msg_.mode_machine() = scene.find("23") != std::string::npos ? 4 : 5;
             }
         }
-
-        bmsstate = std::make_unique<BmsState_t>("rt/lf/bmsstate");
-        bmsstate->msg_.soc() = 100;
-
-        secondary_imustate = std::make_unique<IMUState_t>("rt/secondary_imu");
     }
-
-    void run() override
-    {
-        RobotBridge::run();
-
-        // secondary IMU state
-        if (secondary_imustate->trylock()) {
-            if(secondary_imu_quat_adr_ >= 0) {
-                secondary_imustate->msg_.quaternion()[0] = mj_data_->sensordata[secondary_imu_quat_adr_ + 0];
-                secondary_imustate->msg_.quaternion()[1] = mj_data_->sensordata[secondary_imu_quat_adr_ + 1];
-                secondary_imustate->msg_.quaternion()[2] = mj_data_->sensordata[secondary_imu_quat_adr_ + 2];
-                secondary_imustate->msg_.quaternion()[3] = mj_data_->sensordata[secondary_imu_quat_adr_ + 3];
-
-                double w = secondary_imustate->msg_.quaternion()[0];
-                double x = secondary_imustate->msg_.quaternion()[1];
-                double y = secondary_imustate->msg_.quaternion()[2];
-                double z = secondary_imustate->msg_.quaternion()[3];
-
-                secondary_imustate->msg_.rpy()[0] = atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
-                secondary_imustate->msg_.rpy()[1] = asin(2 * (w * y - z * x));
-                secondary_imustate->msg_.rpy()[2] = atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
-            }
-
-            if(secondary_imu_gyro_adr_ >= 0) {
-                secondary_imustate->msg_.gyroscope()[0] = mj_data_->sensordata[secondary_imu_gyro_adr_ + 0];
-                secondary_imustate->msg_.gyroscope()[1] = mj_data_->sensordata[secondary_imu_gyro_adr_ + 1];
-                secondary_imustate->msg_.gyroscope()[2] = mj_data_->sensordata[secondary_imu_gyro_adr_ + 2];
-            }
-
-            if(secondary_imu_acc_adr_ >= 0) {
-                secondary_imustate->msg_.accelerometer()[0] = mj_data_->sensordata[secondary_imu_acc_adr_ + 0];
-                secondary_imustate->msg_.accelerometer()[1] = mj_data_->sensordata[secondary_imu_acc_adr_ + 1];
-                secondary_imustate->msg_.accelerometer()[2] = mj_data_->sensordata[secondary_imu_acc_adr_ + 2];
-            }
-
-            secondary_imustate->unlockAndPublish();
-        }
-
-        // In practice, bmsstate is sent at a low frequency; here it is sent with the main loop
-        bmsstate->unlockAndPublish();
-    }
-
-    using BmsState_t = unitree::robot::RealTimePublisher<unitree_hg::msg::dds_::BmsState_>;
-    using IMUState_t = unitree::robot::RealTimePublisher<unitree_hg::msg::dds_::IMUState_>;
-    std::unique_ptr<BmsState_t> bmsstate;
-    std::unique_ptr<IMUState_t> secondary_imustate;
 };

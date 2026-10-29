@@ -165,6 +165,16 @@ print_scene_information: 1
 # Mainly used to simulate the hanging process of H1 robot initialization
 enable_elastic_band: 0 # For H1
 ```
+### Robot definitions (C++ simulator)
+Each robot can have a definition file `simulate/robots/<robot>.yaml` that lists the bridge components publishing its extra DDS topics:
+```yaml
+idl: hg          # go | hg, optional (otherwise decided from the number of actuators)
+components:
+  - secondary_imu  # rt/secondary_imu
+  - bms_state      # rt/lf/bmsstate
+```
+Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h`.
+
 ### Python Simulator
 The configuration file for the Python simulator is located at `/simulate_python/config.py`:
 ```python

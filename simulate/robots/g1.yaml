@@ -1,0 +1,5 @@
+# G1 uses the unitree_hg IDL.
+idl: hg
+components:
+  - secondary_imu  # rt/secondary_imu
+  - bms_state      # rt/lf/bmsstate

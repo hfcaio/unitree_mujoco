@@ -1,0 +1,3 @@
+# Go2 uses the unitree_go IDL and only the base topics (lowstate, lowcmd, sportmodestate, wirelesscontroller).
+idl: go
+components: []
