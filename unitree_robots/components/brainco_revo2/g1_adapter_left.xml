@@ -1,0 +1,16 @@
+<!-- G1 wrist-to-Revo2 flange (left), from unitreerobotics/unitree_ros
+  robots/g1_with_brainco_hand (link left_base2_link, BSD-3-Clause); mesh decimated.
+  Frame = left_wrist_yaw_link translated by x = 0.0415 m. -->
+<mujoco model="g1_revo2_adapter_left">
+  <compiler angle="radian" meshdir="meshes"/>
+  <asset>
+    <mesh name="g1_adapter" file="left_g1_adapter.stl"/>
+  </asset>
+  <worldbody>
+    <body name="g1_adapter">
+      <inertial pos="-0.00283400 0 0.00000145" mass="0.02280635" fullinertia="0.00000768 0.00000580 0.00000427 0.00000000 0.00000000 -0.00000000"/>
+      <geom type="mesh" mesh="g1_adapter" contype="0" conaffinity="0" group="2" density="0" rgba="0.7 0.7 0.7 1"/>
+      <geom type="mesh" mesh="g1_adapter" group="3" density="0"/>
+    </body>
+  </worldbody>
+</mujoco>

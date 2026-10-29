@@ -1,0 +1,202 @@
+<!-- BrainCo Revo2 right hand: bridge component model for unitree_mujoco.
+  Converted from BrainCoTech/revo2_description v1.1.1 (urdf/revo2_right_hand.urdf, Apache-2.0);
+  meshes decimated. Kinematics, limits, masses and mimic ratios are the URDF's.
+  Frame of body "base_link" = URDF right_base_link. Names carry no side; the simulator attaches
+  this file with a "right_" prefix (see simulate/src/robot_compose.h).
+  Actuators (DDS order of rt/brainco/right/cmd): thumb, thumb_aux, index, middle, ring, pinky.
+  Joint velocity limits (rad/s, URDF): thumb 2.5303, thumb_aux 2.6175, index 2.2685, middle 2.2685, ring 2.2685, pinky 2.2685 -->
+<mujoco model="brainco_revo2_right">
+  <compiler angle="radian" meshdir="meshes"/>
+
+  <default>
+    <default class="revo2">
+      <joint damping="0.05" armature="0.001" frictionloss="0.001"/>
+      <position kp="2" inheritrange="0"/>
+      <geom friction="1 0.01 0.001" solref="0.005 1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" rgba="0.15 0.15 0.15 1"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3" density="0" rgba="0.5 0.5 0.6 0.5"/>
+      </default>
+      <default class="pad">
+        <geom type="mesh" group="2" density="0" rgba="0.85 0.85 0.85 1" friction="1.5 0.01 0.001"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <mesh name="base_link" file="right_base_link.stl"/>
+    <mesh name="base_visual_link" file="right_base_visual_link.stl"/>
+    <mesh name="index_distal_link" file="right_index_distal_link.stl"/>
+    <mesh name="index_proximal_link" file="right_index_proximal_link.stl"/>
+    <mesh name="index_touch_link" file="right_index_touch_link.stl"/>
+    <mesh name="middle_distal_link" file="right_middle_distal_link.stl"/>
+    <mesh name="middle_proximal_link" file="right_middle_proximal_link.stl"/>
+    <mesh name="middle_touch_link" file="right_middle_touch_link.stl"/>
+    <mesh name="pinky_distal_link" file="right_pinky_distal_link.stl"/>
+    <mesh name="pinky_proximal_link" file="right_pinky_proximal_link.stl"/>
+    <mesh name="pinky_touch_link" file="right_pinky_touch_link.stl"/>
+    <mesh name="ring_distal_link" file="right_ring_distal_link.stl"/>
+    <mesh name="ring_proximal_link" file="right_ring_proximal_link.stl"/>
+    <mesh name="ring_touch_link" file="right_ring_touch_link.stl"/>
+    <mesh name="thumb_distal_link" file="right_thumb_distal_link.stl"/>
+    <mesh name="thumb_metacarpal_link" file="right_thumb_metacarpal_link.stl"/>
+    <mesh name="thumb_proximal_link" file="right_thumb_proximal_link.stl"/>
+    <mesh name="thumb_proximal_visual_link" file="right_thumb_proximal_visual_link.stl"/>
+    <mesh name="thumb_touch_link" file="right_thumb_touch_link.stl"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" childclass="revo2">
+      <inertial pos="-0.00524378 -0.0034038 0.0521267" mass="0.238" fullinertia="2.10912e-05 1.44622e-05 7.99811e-06 3.86322e-08 9.36399e-08 -1.09577e-06"/>
+      <geom class="visual" mesh="base_link" pos="0 0 0" quat="1 0 0 0"/>
+      <geom class="visual" mesh="base_visual_link" pos="0 0 0" quat="1 0 0 0"/>
+      <geom class="collision" name="base_link_collision" mesh="base_link" pos="0 0 0" quat="1 0 0 0"/>
+      <body name="thumb_metacarpal_link" pos="0.005619 0.019867 0.027825" quat="0.993943 0 0 -0.109893">
+        <inertial pos="1.51106e-05 0.00707243 -0.00420847" mass="0.01" fullinertia="1.5924e-07 1.60913e-07 5.1355e-08 -4.69101e-09 4.92934e-10 -1.48147e-08"/>
+        <joint name="thumb_metacarpal_joint" axis="0 0 -1" range="0 1.55334"/>
+        <geom class="visual" mesh="thumb_metacarpal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <geom class="collision" name="thumb_metacarpal_link_collision" mesh="thumb_metacarpal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="thumb_proximal_link" pos="0 0.014227 0" quat="0.977545 0.153479 0.130104 0.0626373">
+          <inertial pos="-4.6972e-07 0.0277015 -0.00202656" mass="0.05" fullinertia="2.40452e-06 5.12324e-07 2.56254e-06 -1.31093e-10 8.32477e-12 -2.89155e-08"/>
+          <joint name="thumb_proximal_joint" axis="1 0 0" range="0 1.04720"/>
+          <geom class="visual" mesh="thumb_proximal_visual_link" pos="0 0 0" quat="1 0 0 0"/>
+          <geom class="collision" name="thumb_proximal_link_collision" mesh="thumb_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <body name="thumb_distal_link" pos="0 0.052 0" quat="0.99863 -0.0523361 0 0">
+            <inertial pos="-6.86982e-09 0.0117545 1.13288e-05" mass="0.012" fullinertia="3.35587e-07 2.30724e-07 4.39106e-07 1.4276e-11 -1.36764e-11 2.5035e-08"/>
+            <joint name="thumb_distal_joint" axis="1 0 0" range="0 1.15192"/>
+            <geom class="visual" mesh="thumb_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+            <geom class="collision" name="thumb_distal_link_collision" mesh="thumb_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+            <site name="thumb_tip" pos="0 0.0265288 -0.00177344" quat="0.999443 -0.033369 0 0" size="0.002" group="4"/>
+            <geom class="pad" name="thumb_touch" mesh="thumb_touch_link" pos="0 0.0137928 0.0076766" quat="0.999443 -0.033369 0 0"/>
+            <site name="thumb_touch" type="box" size="0.01177 0.01332 0.008168" pos="-1.41189e-05 0.0153506 0.00156352" quat="0.999443 -0.033369 0 0" group="4" rgba="1 0.3 0.3 0.3"/>
+          </body>
+        </body>
+      </body>
+      <body name="index_proximal_link" pos="-0.0021181 0.029568 0.080876" quat="0.992147 -0.0522807 0.0783652 -0.0822789">
+        <inertial pos="-0.00223495 3.15875e-06 0.0176402" mass="0.009" fullinertia="2.51946e-07 2.36435e-07 9.30351e-08 1.19773e-11 -6.37276e-09 1.65019e-10"/>
+        <joint name="index_proximal_joint" axis="0 1 0" range="0 1.41"/>
+        <geom class="visual" mesh="index_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <geom class="collision" name="index_proximal_link_collision" mesh="index_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="index_distal_link" pos="0 0 0.032" quat="1 0 0 0">
+          <inertial pos="0.00506251 1.61615e-07 0.0165189" mass="0.011" fullinertia="6.11651e-07 7.85555e-07 2.47217e-07 -1.05831e-12 -2.89533e-07 -1.38614e-12"/>
+          <joint name="index_distal_joint" axis="0 1 0" range="0 1.69297"/>
+          <geom class="visual" mesh="index_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <geom class="collision" name="index_distal_link_collision" mesh="index_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <site name="index_tip" pos="0.011097 0 0.035739" quat="0.971859 5.26836e-09 0.235565 0" size="0.002" group="4"/>
+          <geom class="pad" name="index_touch" mesh="index_touch_link" pos="0.014497 0 0.023303" quat="0.6361 0.734769 0.154182 -0.178098"/>
+          <site name="index_touch" type="box" size="0.005704 0.01033 0.007821" pos="0.0118059 9.94455e-05 0.0261258" quat="0.6361 0.734769 0.154182 -0.178098" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+      <body name="middle_proximal_link" pos="-0.0045767 0.010051 0.084993" quat="0.996681 -0.0175235 0.0746069 -0.0274369">
+        <inertial pos="-0.00222511 5.25632e-06 0.0203008" mass="0.009" fullinertia="3.66996e-07 3.52645e-07 1.12234e-07 2.68341e-11 -9.79837e-09 2.57866e-10"/>
+        <joint name="middle_proximal_joint" axis="0 1 0" range="0 1.41"/>
+        <geom class="visual" mesh="middle_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <geom class="collision" name="middle_proximal_link_collision" mesh="middle_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="middle_distal_link" pos="0 0 0.037" quat="1 0 0 0">
+          <inertial pos="0.00591597 -2.75379e-08 0.0190796" mass="0.011" fullinertia="8.53306e-07 1.06828e-06 3.07484e-07 2.32038e-12 -3.81405e-07 1.08507e-12"/>
+          <joint name="middle_distal_joint" axis="0 1 0" range="0 1.69297"/>
+          <geom class="visual" mesh="middle_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <geom class="collision" name="middle_distal_link_collision" mesh="middle_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <site name="middle_tip" pos="0.012558 0 0.040442" quat="0.971859 5.26836e-09 0.235565 0" size="0.002" group="4"/>
+          <geom class="pad" name="middle_touch" mesh="middle_touch_link" pos="0.0159759 0 0.0265894" quat="0.971858 5.26836e-09 0.235566 0"/>
+          <site name="middle_touch" type="box" size="0.005942 0.007989 0.01132" pos="0.0132079 -5.70901e-07 0.0297869" quat="0.971858 5.26836e-09 0.235566 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+      <body name="ring_proximal_link" pos="-0.0046709 -0.010037 0.083982" quat="0.996722 0.0175386 0.0740633 0.0274276">
+        <inertial pos="-0.00234495 5.87955e-06 0.0191774" mass="0.009" fullinertia="3.14178e-07 2.97613e-07 1.02115e-07 3.34382e-11 -7.78982e-09 2.41252e-10"/>
+        <joint name="ring_proximal_joint" axis="0 1 0" range="0 1.41"/>
+        <geom class="visual" mesh="ring_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <geom class="collision" name="ring_proximal_link_collision" mesh="ring_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="ring_distal_link" pos="0 0 0.035" quat="1 0 0 0">
+          <inertial pos="0.00570078 5.57858e-08 0.0185997" mass="0.011" fullinertia="8.06283e-07 1.01271e-06 2.93094e-07 1.39761e-12 -3.65996e-07 7.41086e-13"/>
+          <joint name="ring_distal_joint" axis="0 1 0" range="0 1.69297"/>
+          <geom class="visual" mesh="ring_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <geom class="collision" name="ring_distal_link_collision" mesh="ring_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <site name="ring_tip" pos="0.012266 0 0.039501" quat="0.971859 5.26836e-09 0.235565 0" size="0.002" group="4"/>
+          <geom class="pad" name="ring_touch" mesh="ring_touch_link" pos="0.0154392 0 0.0260561" quat="0.971858 5.26836e-09 0.235566 0"/>
+          <site name="ring_touch" type="box" size="0.005747 0.007903 0.01096" pos="0.0128961 -1.53226e-06 0.0292672" quat="0.971858 5.26836e-09 0.235566 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+      <body name="pinky_proximal_link" pos="-0.0023566 -0.029366 0.078694" quat="0.992245 0.052387 0.0771065 0.0822136">
+        <inertial pos="-0.00213212 7.75039e-06 0.0160672" mass="0.009" fullinertia="1.97563e-07 1.82023e-07 8.21625e-08 2.23402e-11 -4.58426e-09 1.08028e-10"/>
+        <joint name="pinky_proximal_joint" axis="0 1 0" range="0 1.41"/>
+        <geom class="visual" mesh="pinky_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <geom class="collision" name="pinky_proximal_link_collision" mesh="pinky_proximal_link" pos="0 0 0" quat="1 0 0 0"/>
+        <body name="pinky_distal_link" pos="0 0 0.029" quat="1 0 0 0">
+          <inertial pos="0.00473738 -1.62934e-07 0.0150053" mass="0.011" fullinertia="4.71555e-07 6.20818e-07 2.17977e-07 2.50747e-12 -2.30247e-07 5.93412e-12"/>
+          <joint name="pinky_distal_joint" axis="0 1 0" range="0 1.69297"/>
+          <geom class="visual" mesh="pinky_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <geom class="collision" name="pinky_distal_link_collision" mesh="pinky_distal_link" pos="0 0 0" quat="1 0 0 0"/>
+          <site name="pinky_tip" pos="0.010221 0 0.032918" quat="0.971859 5.26836e-09 0.235565 0" size="0.002" group="4"/>
+          <geom class="pad" name="pinky_touch" mesh="pinky_touch_link" pos="0.01401 0 0.021124" quat="0.971859 5.26836e-09 0.235565 0"/>
+          <site name="pinky_touch" type="box" size="0.005591 0.007897 0.01047" pos="0.011034 0 0.0231043" quat="0.971859 5.26836e-09 0.235565 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <contact>
+    <exclude body1="base_link" body2="thumb_metacarpal_link"/>
+    <exclude body1="base_link" body2="thumb_proximal_link"/>
+    <exclude body1="base_link" body2="thumb_distal_link"/>
+    <exclude body1="base_link" body2="index_proximal_link"/>
+    <exclude body1="base_link" body2="index_distal_link"/>
+    <exclude body1="base_link" body2="middle_proximal_link"/>
+    <exclude body1="base_link" body2="middle_distal_link"/>
+    <exclude body1="base_link" body2="ring_proximal_link"/>
+    <exclude body1="base_link" body2="ring_distal_link"/>
+    <exclude body1="base_link" body2="pinky_proximal_link"/>
+    <exclude body1="base_link" body2="pinky_distal_link"/>
+    <exclude body1="thumb_metacarpal_link" body2="thumb_distal_link"/>
+  </contact>
+
+  <equality>
+    <joint joint1="thumb_distal_joint" joint2="thumb_proximal_joint" polycoef="0 1.0945 0 0 0"/>
+    <joint joint1="index_distal_joint" joint2="index_proximal_joint" polycoef="0 1.131 0 0 0"/>
+    <joint joint1="middle_distal_joint" joint2="middle_proximal_joint" polycoef="0 1.267 0 0 0"/>
+    <joint joint1="ring_distal_joint" joint2="ring_proximal_joint" polycoef="0 1.252 0 0 0"/>
+    <joint joint1="pinky_distal_joint" joint2="pinky_proximal_joint" polycoef="0 1.271 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <position class="revo2" name="thumb" joint="thumb_proximal_joint" ctrlrange="0 1.04720" forcerange="-1.1 1.1"/>
+    <position class="revo2" name="thumb_aux" joint="thumb_metacarpal_joint" ctrlrange="0 1.55334" forcerange="-0.5 0.5"/>
+    <position class="revo2" name="index" joint="index_proximal_joint" ctrlrange="0 1.41" forcerange="-2 2"/>
+    <position class="revo2" name="middle" joint="middle_proximal_joint" ctrlrange="0 1.41" forcerange="-2 2"/>
+    <position class="revo2" name="ring" joint="ring_proximal_joint" ctrlrange="0 1.41" forcerange="-2 2"/>
+    <position class="revo2" name="pinky" joint="pinky_proximal_joint" ctrlrange="0 1.41" forcerange="-2 2"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="thumb_pos" joint="thumb_proximal_joint"/>
+    <jointpos name="thumb_aux_pos" joint="thumb_metacarpal_joint"/>
+    <jointpos name="index_pos" joint="index_proximal_joint"/>
+    <jointpos name="middle_pos" joint="middle_proximal_joint"/>
+    <jointpos name="ring_pos" joint="ring_proximal_joint"/>
+    <jointpos name="pinky_pos" joint="pinky_proximal_joint"/>
+    <jointvel name="thumb_vel" joint="thumb_proximal_joint"/>
+    <jointvel name="thumb_aux_vel" joint="thumb_metacarpal_joint"/>
+    <jointvel name="index_vel" joint="index_proximal_joint"/>
+    <jointvel name="middle_vel" joint="middle_proximal_joint"/>
+    <jointvel name="ring_vel" joint="ring_proximal_joint"/>
+    <jointvel name="pinky_vel" joint="pinky_proximal_joint"/>
+    <actuatorfrc name="thumb_force" actuator="thumb"/>
+    <actuatorfrc name="thumb_aux_force" actuator="thumb_aux"/>
+    <actuatorfrc name="index_force" actuator="index"/>
+    <actuatorfrc name="middle_force" actuator="middle"/>
+    <actuatorfrc name="ring_force" actuator="ring"/>
+    <actuatorfrc name="pinky_force" actuator="pinky"/>
+    <touch name="thumb_touch" site="thumb_touch"/>
+    <touch name="index_touch" site="index_touch"/>
+    <touch name="middle_touch" site="middle_touch"/>
+    <touch name="ring_touch" site="ring_touch"/>
+    <touch name="pinky_touch" site="pinky_touch"/>
+    <contact name="thumb_contact" site="thumb_touch" data="found force normal tangent" reduce="maxforce" num="4"/>
+    <contact name="index_contact" site="index_touch" data="found force normal tangent" reduce="maxforce" num="4"/>
+    <contact name="middle_contact" site="middle_touch" data="found force normal tangent" reduce="maxforce" num="4"/>
+    <contact name="ring_contact" site="ring_touch" data="found force normal tangent" reduce="maxforce" num="4"/>
+    <contact name="pinky_contact" site="pinky_touch" data="found force normal tangent" reduce="maxforce" num="4"/>
+  </sensor>
+</mujoco>
