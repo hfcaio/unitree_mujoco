@@ -187,7 +187,8 @@ using HighState_t = unitree::robot::go2::publisher::SportModeState;
 using WirelessController_t = unitree::robot::go2::publisher::WirelessController;
 
 public:
-    RobotBridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef())
+    RobotBridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef(),
+                std::recursive_mutex *sim_mutex = nullptr)
     : UnitreeSDK2BridgeBase(model, data)
     {
         if (def.motors.empty()) {
@@ -209,6 +210,7 @@ public:
         }
         context.sportmodestate = &highstate_snapshot_;
         context.joystick = joystick;
+        context.sim_mutex = sim_mutex;
         for (const auto &spec : def.components) {
             components_.push_back(ComponentRegistry::instance().create(spec.type, model, data, spec.params, context));
         }
@@ -318,8 +320,9 @@ using Go2Bridge = RobotBridge<unitree::robot::go2::subscription::LowCmd, unitree
 class G1Bridge : public RobotBridge<unitree::robot::g1::subscription::LowCmd, unitree::robot::g1::publisher::LowState>
 {
 public:
-    G1Bridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef())
-    : RobotBridge(model, data, def)
+    G1Bridge(mjModel *model, mjData *data, const RobotDef &def = RobotDef(),
+             std::recursive_mutex *sim_mutex = nullptr)
+    : RobotBridge(model, data, def, sim_mutex)
     {
         if (param::config.robot.find("g1") != std::string::npos) {
             auto* g1_lowstate = dynamic_cast<unitree::robot::g1::publisher::LowState*>(lowstate.get());

@@ -8,9 +8,11 @@
 #include <unitree/idl/go2/SportModeState_.hpp>
 #include <unitree/idl/hg/LowState_.hpp>
 
+#include <cmath>
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -25,6 +27,9 @@ struct BridgeContext
     const unitree_hg::msg::dds_::LowState_ *hg_lowstate = nullptr;
     const unitree_go::msg::dds_::SportModeState_ *sportmodestate = nullptr;
     std::shared_ptr<unitree::common::UnitreeJoystick> joystick;
+    // The physics thread's mutex (mj::Simulate::mtx): mj_step runs under it. Components that need a
+    // consistent copy of the state (e.g. for ray casting) take it briefly; see perception_components.h.
+    std::recursive_mutex *sim_mutex = nullptr;
 };
 
 // A BridgeComponent is one self-contained piece of the robot <-> DDS bridge
@@ -62,6 +67,35 @@ protected:
 
     mjModel *mj_model_;
     mjData *mj_data_;
+};
+
+// Base for components that publish at a fraction of the bridge rate. The bridge ticks at 1 kHz;
+// the component publishes every `rate_div`-th tick. Params: `rate_div` or `hz`
+// (default: the component's own rate, 100 Hz = rate_div 10 unless stated).
+class LowRateComponent : public BridgeComponent
+{
+protected:
+    LowRateComponent(mjModel *model, mjData *data, const YAML::Node &params, const char *name,
+                     double default_hz = 100.0)
+        : BridgeComponent(model, data), div_(static_cast<int>(std::lround(kBridgeHz / default_hz)))
+    {
+        if (params["hz"]) {
+            div_ = static_cast<int>(std::lround(kBridgeHz / params["hz"].as<double>()));
+        } else if (params["rate_div"]) {
+            div_ = params["rate_div"].as<int>();
+        }
+        if (div_ < 1) {
+            throw std::invalid_argument(std::string(name) + ": rate_div must be >= 1 and hz <= 1000");
+        }
+    }
+
+    // True on the ticks this component should publish on.
+    bool due() { return (tick_++ % div_) == 0; }
+
+private:
+    static constexpr double kBridgeHz = 1000.0;
+    int div_;
+    unsigned long tick_ = 0;
 };
 
 class ComponentRegistry

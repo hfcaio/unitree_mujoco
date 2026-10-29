@@ -581,8 +581,10 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
   exit(0);
 }
 
+// `arg`: the physics mutex (std::recursive_mutex *, mj::Simulate::mtx), handed to the bridge components.
 void *UnitreeSdk2BridgeThread(void *arg)
 {
+  auto *sim_mutex = static_cast<std::recursive_mutex *>(arg);
   // Wait for mujoco data
   while (true)
   {
@@ -620,10 +622,10 @@ void *UnitreeSdk2BridgeThread(void *arg)
         // No robots/<robot>.yaml: keep the behaviour every unitree_hg robot had before robot definitions existed
         robot_def.components = {{"secondary_imu", YAML::Node()}, {"bms_state", YAML::Node()}};
       }
-      interface = std::make_unique<G1Bridge>(m, d, robot_def);
+      interface = std::make_unique<G1Bridge>(m, d, robot_def, sim_mutex);
     } else {
       std::cout << "Using unitree_go DDS IDL for robot " << param::config.robot << std::endl;
-      interface = std::make_unique<Go2Bridge>(m, d, robot_def);
+      interface = std::make_unique<Go2Bridge>(m, d, robot_def, sim_mutex);
     }
   } catch (const std::exception& error) {
     std::cerr << error.what() << std::endl;
@@ -723,7 +725,7 @@ int main(int argc, char **argv)
     std::make_unique<mj::GlfwAdapter>(),
     &cam, &opt, &pert, /* is_passive = */ false);
 
-  std::thread unitree_thread(UnitreeSdk2BridgeThread, nullptr);
+  std::thread unitree_thread(UnitreeSdk2BridgeThread, static_cast<std::recursive_mutex *>(&sim->mtx));
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());

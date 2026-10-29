@@ -170,33 +170,6 @@ private:
     std::unique_ptr<State_t> state_;
 };
 
-// Low-rate republishing of a topic the base bridge already fills. The bridge ticks at 1 kHz;
-// the component publishes every `rate_div`-th tick. Params: `rate_div` (default 10) or `hz`.
-class LowRateComponent : public BridgeComponent
-{
-protected:
-    LowRateComponent(mjModel *model, mjData *data, const YAML::Node &params, const char *name)
-        : BridgeComponent(model, data)
-    {
-        if (params["hz"]) {
-            div_ = static_cast<int>(std::lround(kBridgeHz / params["hz"].as<double>()));
-        } else if (params["rate_div"]) {
-            div_ = params["rate_div"].as<int>();
-        }
-        if (div_ < 1) {
-            throw std::invalid_argument(std::string(name) + ": rate_div must be >= 1 and hz <= 1000");
-        }
-    }
-
-    // True on the ticks this component should publish on.
-    bool due() { return (tick_++ % div_) == 0; }
-
-private:
-    static constexpr double kBridgeHz = 1000.0;
-    int div_ = 10;
-    unsigned long tick_ = 0;
-};
-
 // rt/lf/lowstate: rt/lowstate at a lower rate. unitree_go::LowState_ or unitree_hg::LowState_
 // depending on the robot's IDL.
 class LfLowStateComponent : public LowRateComponent
