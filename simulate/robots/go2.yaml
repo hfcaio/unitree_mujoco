@@ -3,3 +3,10 @@ idl: go
 components:
   - lf_lowstate        # rt/lf/lowstate (rt/lowstate at 1/10 of the rate)
   - lf_sportmodestate  # rt/lf/sportmodestate (rt/sportmodestate at 1/10 of the rate)
+  # L1 lidar and state-estimation topics (rt/utlidar/*), see readme.md "Perception topics".
+  - {type: utlidar_cloud, hz: 15, points: 1440}  # rt/utlidar/cloud + rt/utlidar/cloud_deskewed, ray cast from site `utlidar`
+  - utlidar_imu            # rt/utlidar/imu
+  - utlidar_lidar_state    # rt/utlidar/lidar_state
+  - utlidar_robot_odom     # rt/utlidar/robot_odom
+  - utlidar_robot_pose     # rt/utlidar/robot_pose
+  - utlidar_foot_position  # rt/utlidar/foot_position
