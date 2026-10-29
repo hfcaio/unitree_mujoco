@@ -1,0 +1,150 @@
+<!-- Unitree Dex3-1 right hand: bridge component model for unitree_mujoco.
+  Converted from unitreerobotics/unitree_ros robots/dexterous_hand_description/dex3_1/dex3_1_r.urdf
+  (BSD-3-Clause); meshes decimated. Kinematics, joint limits, effort limits and inertias are the URDF's.
+  Frame of body "hand_palm_link" = URDF right_hand_palm_link. Attached to the G1 right_wrist_yaw_link at
+  (0.0415, -0.003, 0) with a "right_" prefix (see simulate/src/robot_compose.h), so the
+  names below become right_hand_thumb_0_joint etc., as in g1_29dof_with_hand.urdf.
+  Motors (DDS order of rt/dex3/right/cmd): thumb_0 thumb_1 thumb_2 middle_0 middle_1 index_0 index_1.
+  Torque actuators; the PD law of the real hand is evaluated by the dex3_hand bridge component.
+  Tactile areas hand_press_0..8 = DDS press_sensor_state[0..8] (touch sensors on the inner side of the
+  links, thumb 1/2, middle 0/1, index 0/1; the layout is a guess, see readme.md). -->
+<mujoco model="dex3_1_right">
+  <compiler angle="radian" meshdir="meshes"/>
+
+  <default>
+    <default class="dex3">
+      <joint damping="0.01" armature="0.002" frictionloss="0.001"/>
+      <geom friction="1 0.01 0.001" solref="0.005 1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" density="0" rgba="0.2 0.2 0.2 1"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3" density="0" rgba="0.5 0.5 0.6 0.5"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <mesh name="hand_palm_link" file="right_hand_palm_link.stl"/>
+    <mesh name="hand_thumb_0_link" file="right_hand_thumb_0_link.stl"/>
+    <mesh name="hand_thumb_1_link" file="right_hand_thumb_1_link.stl"/>
+    <mesh name="hand_thumb_2_link" file="right_hand_thumb_2_link.stl"/>
+    <mesh name="hand_middle_0_link" file="right_hand_middle_0_link.stl"/>
+    <mesh name="hand_middle_1_link" file="right_hand_middle_1_link.stl"/>
+    <mesh name="hand_index_0_link" file="right_hand_index_0_link.stl"/>
+    <mesh name="hand_index_1_link" file="right_hand_index_1_link.stl"/>
+  </asset>
+
+  <worldbody>
+    <body name="hand_palm_link" childclass="dex3">
+      <inertial pos="0.062146348 0.00050869656 -0.00058171093" mass="0.37283854" fullinertia="0.00027535181 0.00053951827 0.00039623391 1.5955195e-05 -2.4216189e-06 4.2279435e-07"/>
+      <geom class="visual" mesh="hand_palm_link"/>
+      <geom class="collision" name="hand_palm_link_collision" mesh="hand_palm_link"/>
+      <site name="hand_imu" pos="0 0 0" size="0.002" group="4"/>
+      <body name="hand_thumb_0_link" pos="0.0255 0 0">
+        <inertial pos="-0.0008842458 0.0086340708 0.00094429336" mass="0.08623657" fullinertia="1.6029192e-05 1.451795e-05 1.6378777e-05 -1.0683177e-07 1.6728875e-07 5.1094752e-07"/>
+        <joint name="hand_thumb_0_joint" axis="0 1 0" range="-1.0471975 1.0471975" actuatorfrcrange="-2.45 2.45"/>
+        <geom class="visual" mesh="hand_thumb_0_link"/>
+        <geom class="collision" name="hand_thumb_0_link_collision" mesh="hand_thumb_0_link"/>
+        <body name="hand_thumb_1_link" pos="-0.0025 0.0193 0">
+          <inertial pos="-0.00082788768 0.035474358 -0.0003808996" mass="0.05885070" fullinertia="1.2746999e-05 6.0157395e-06 1.2345436e-05 5.0770784e-07 1.608885e-07 2.7839003e-07"/>
+          <joint name="hand_thumb_1_joint" axis="0 0 1" range="-1.0471975 0.61086523" actuatorfrcrange="-1.4 1.4"/>
+          <geom class="visual" mesh="hand_thumb_1_link"/>
+          <geom class="collision" name="hand_thumb_1_link_collision" type="box" size="0.01 0.015 0.01" pos="-0.001 0.032 0"/>
+          <site name="hand_press_0" type="box" size="0.008 0.016 0.011" pos="0.005 0.032 0" group="4" rgba="1 0.3 0.3 0.3"/>
+          <body name="hand_thumb_2_link" pos="0 0.0458 0">
+            <inertial pos="-0.0017173524 0.026281929 0.00010778879" mass="0.02030626" fullinertia="4.6126782e-06 1.5356137e-06 3.8662578e-06 3.42213e-08 -8.23881e-09 2.549885e-08"/>
+            <joint name="hand_thumb_2_joint" axis="0 0 1" range="-1.7453292 0" actuatorfrcrange="-1.4 1.4"/>
+            <geom class="visual" mesh="hand_thumb_2_link"/>
+            <geom class="collision" name="hand_thumb_2_link_collision" mesh="hand_thumb_2_link"/>
+            <site name="hand_press_1" type="box" size="0.007 0.014 0.011" pos="0.006 0.014 0" group="4" rgba="1 0.3 0.3 0.3"/>
+            <site name="hand_press_2" type="box" size="0.007 0.0135 0.011" pos="0.006 0.041 0" group="4" rgba="1 0.3 0.3 0.3"/>
+          </body>
+        </body>
+      </body>
+      <body name="hand_middle_0_link" pos="0.0777 -0.0016 -0.0285">
+        <inertial pos="0.035474358 -0.00082788768 0.0003808996" mass="0.05885070" fullinertia="6.0157395e-06 1.2746999e-05 1.2345436e-05 5.0770784e-07 -2.7839003e-07 -1.608885e-07"/>
+        <joint name="hand_middle_0_joint" axis="0 0 1" range="0 1.5707963" actuatorfrcrange="-1.4 1.4"/>
+        <geom class="visual" mesh="hand_middle_0_link"/>
+        <geom class="collision" name="hand_middle_0_link_collision" mesh="hand_middle_0_link"/>
+        <site name="hand_press_3" type="box" size="0.03 0.0075 0.01" pos="0.025 0.0095 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        <body name="hand_middle_1_link" pos="0.0458 0 0">
+          <inertial pos="0.026281929 -0.0017173524 -0.00010778879" mass="0.02030626" fullinertia="1.5356137e-06 4.6126782e-06 3.8662578e-06 3.42213e-08 -2.549885e-08 8.23881e-09"/>
+          <joint name="hand_middle_1_joint" axis="0 0 1" range="0 1.7453292" actuatorfrcrange="-1.4 1.4"/>
+          <geom class="visual" mesh="hand_middle_1_link"/>
+          <geom class="collision" name="hand_middle_1_link_collision" mesh="hand_middle_1_link"/>
+          <site name="hand_press_4" type="box" size="0.0135 0.007 0.01" pos="0.0135 0.007 0" group="4" rgba="1 0.3 0.3 0.3"/>
+          <site name="hand_press_5" type="box" size="0.0135 0.007 0.01" pos="0.0405 0.007 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+      <body name="hand_index_0_link" pos="0.0777 -0.0016 0.0285">
+        <inertial pos="0.035474358 -0.00082788768 0.0003808996" mass="0.05885070" fullinertia="6.0157395e-06 1.2746999e-05 1.2345436e-05 5.0770784e-07 -2.7839003e-07 -1.608885e-07"/>
+        <joint name="hand_index_0_joint" axis="0 0 1" range="0 1.5707963" actuatorfrcrange="-1.4 1.4"/>
+        <geom class="visual" mesh="hand_index_0_link"/>
+        <geom class="collision" name="hand_index_0_link_collision" mesh="hand_index_0_link"/>
+        <site name="hand_press_6" type="box" size="0.03 0.0075 0.01" pos="0.025 0.0095 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        <body name="hand_index_1_link" pos="0.0458 0 0">
+          <inertial pos="0.026281929 -0.0017173524 -0.00010778879" mass="0.02030626" fullinertia="1.5356137e-06 4.6126782e-06 3.8662578e-06 3.42213e-08 -2.549885e-08 8.23881e-09"/>
+          <joint name="hand_index_1_joint" axis="0 0 1" range="0 1.7453292" actuatorfrcrange="-1.4 1.4"/>
+          <geom class="visual" mesh="hand_index_1_link"/>
+          <geom class="collision" name="hand_index_1_link_collision" mesh="hand_index_1_link"/>
+          <site name="hand_press_7" type="box" size="0.0135 0.007 0.01" pos="0.0135 0.007 0" group="4" rgba="1 0.3 0.3 0.3"/>
+          <site name="hand_press_8" type="box" size="0.0135 0.007 0.01" pos="0.0405 0.007 0" group="4" rgba="1 0.3 0.3 0.3"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <contact>
+    <exclude body1="hand_palm_link" body2="hand_thumb_1_link"/>
+    <exclude body1="hand_palm_link" body2="hand_thumb_2_link"/>
+    <exclude body1="hand_palm_link" body2="hand_middle_1_link"/>
+    <exclude body1="hand_palm_link" body2="hand_index_1_link"/>
+  </contact>
+
+  <actuator>
+    <motor name="hand_thumb_0" joint="hand_thumb_0_joint" ctrlrange="-2.45 2.45"/>
+    <motor name="hand_thumb_1" joint="hand_thumb_1_joint" ctrlrange="-1.4 1.4"/>
+    <motor name="hand_thumb_2" joint="hand_thumb_2_joint" ctrlrange="-1.4 1.4"/>
+    <motor name="hand_middle_0" joint="hand_middle_0_joint" ctrlrange="-1.4 1.4"/>
+    <motor name="hand_middle_1" joint="hand_middle_1_joint" ctrlrange="-1.4 1.4"/>
+    <motor name="hand_index_0" joint="hand_index_0_joint" ctrlrange="-1.4 1.4"/>
+    <motor name="hand_index_1" joint="hand_index_1_joint" ctrlrange="-1.4 1.4"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="hand_thumb_0_pos" joint="hand_thumb_0_joint"/>
+    <jointpos name="hand_thumb_1_pos" joint="hand_thumb_1_joint"/>
+    <jointpos name="hand_thumb_2_pos" joint="hand_thumb_2_joint"/>
+    <jointpos name="hand_middle_0_pos" joint="hand_middle_0_joint"/>
+    <jointpos name="hand_middle_1_pos" joint="hand_middle_1_joint"/>
+    <jointpos name="hand_index_0_pos" joint="hand_index_0_joint"/>
+    <jointpos name="hand_index_1_pos" joint="hand_index_1_joint"/>
+    <jointvel name="hand_thumb_0_vel" joint="hand_thumb_0_joint"/>
+    <jointvel name="hand_thumb_1_vel" joint="hand_thumb_1_joint"/>
+    <jointvel name="hand_thumb_2_vel" joint="hand_thumb_2_joint"/>
+    <jointvel name="hand_middle_0_vel" joint="hand_middle_0_joint"/>
+    <jointvel name="hand_middle_1_vel" joint="hand_middle_1_joint"/>
+    <jointvel name="hand_index_0_vel" joint="hand_index_0_joint"/>
+    <jointvel name="hand_index_1_vel" joint="hand_index_1_joint"/>
+    <jointactuatorfrc name="hand_thumb_0_torque" joint="hand_thumb_0_joint"/>
+    <jointactuatorfrc name="hand_thumb_1_torque" joint="hand_thumb_1_joint"/>
+    <jointactuatorfrc name="hand_thumb_2_torque" joint="hand_thumb_2_joint"/>
+    <jointactuatorfrc name="hand_middle_0_torque" joint="hand_middle_0_joint"/>
+    <jointactuatorfrc name="hand_middle_1_torque" joint="hand_middle_1_joint"/>
+    <jointactuatorfrc name="hand_index_0_torque" joint="hand_index_0_joint"/>
+    <jointactuatorfrc name="hand_index_1_torque" joint="hand_index_1_joint"/>
+    <touch name="hand_press_0" site="hand_press_0"/>
+    <touch name="hand_press_1" site="hand_press_1"/>
+    <touch name="hand_press_2" site="hand_press_2"/>
+    <touch name="hand_press_3" site="hand_press_3"/>
+    <touch name="hand_press_4" site="hand_press_4"/>
+    <touch name="hand_press_5" site="hand_press_5"/>
+    <touch name="hand_press_6" site="hand_press_6"/>
+    <touch name="hand_press_7" site="hand_press_7"/>
+    <touch name="hand_press_8" site="hand_press_8"/>
+    <framequat name="hand_imu_quat" objtype="site" objname="hand_imu"/>
+    <gyro name="hand_imu_gyro" site="hand_imu"/>
+    <accelerometer name="hand_imu_acc" site="hand_imu"/>
+  </sensor>
+</mujoco>
