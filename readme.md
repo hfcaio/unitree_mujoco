@@ -34,6 +34,16 @@ Note:
 
 
 # Installation
+## Nix / direnv
+`flake.nix` provides every dependency for both simulators (MuJoCo 3.3.6 release, unitree_sdk2, cyclonedds, Python 3.13 with mujoco/pygame/opencv/unitree_sdk2py). Entering the shell links `simulate/mujoco` to the MuJoCo release.
+```bash
+direnv allow                      # or: nix develop
+cd simulate && mkdir -p build && cd build && cmake .. && make -j4 unitree_mujoco
+./unitree_mujoco -r go2 -s scene_terrain.xml
+cd ../../simulate_python && python unitree_mujoco.py
+```
+Build the `unitree_mujoco` target only: `jstest` does not compile against the current unitree_sdk2.
+
 ## C++ Simulator (simulate)
 ### 1. Dependencies
 
