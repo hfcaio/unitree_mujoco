@@ -19,6 +19,7 @@
 - `rt/lf/lowstate` (`LowState`) and `rt/lf/sportmodestate` (`SportModeState`): the low-frequency variants of `rt/lowstate` and `rt/sportmodestate` (ROS 2: `/lf/lowstate`, `/lf/sportmodestate`), published for robots whose definition lists the `lf_lowstate` / `lf_sportmodestate` components (Go2, G1, G1-D), by default every 10th bridge tick
 - `rt/utlidar/cloud`, `rt/utlidar/cloud_deskewed`, `rt/utlidar/foot_position` (`sensor_msgs/PointCloud2`), `rt/utlidar/imu` (`sensor_msgs/Imu`), `rt/utlidar/robot_odom` (`nav_msgs/Odometry`), `rt/utlidar/robot_pose` (`geometry_msgs/PoseStamped`), `rt/utlidar/lidar_state` (`unitree_go::LidarState_`): the Go2 L1 lidar (ray cast against the scene) and state-estimation topics (ROS 2: `/utlidar/...`), see [Perception topics](#perception-topics-go2-l1-lidar-rtutlidar)
 - `rt/brainco/{left,right}/cmd` (`unitree_go::MotorCmds_`), `rt/brainco/{left,right}/state` (`unitree_go::MotorStates_`) and `rt/brainco/{left,right}/touch` (`unitree_hg::PressSensorState_`, simulator only): BrainCo Revo2 hands on the G1 (`-r g1_brainco`), see [G1 with BrainCo hands](#g1-with-brainco-revo2-hands)
+- `rt/dex3/{left,right}/cmd` (`unitree_hg::HandCmd_`), `rt/dex3/{left,right}/state` and `rt/lf/dex3/{left,right}/state` (`unitree_hg::HandState_`): Unitree Dex3-1 hands on the G1 (`-r g1_dex3`), see [G1 with Dex3-1 hands](#g1-with-unitree-dex3-1-hands)
 
 Note:
 1. The numbering of the motors corresponds to the actual robot hardware. Specific details can be found in the [Unitree documentation](https://support.unitree.com/home/zh/developer).
@@ -221,6 +222,31 @@ Sources and what was assumed:
 - Dynamics (position servo gain, joint damping/armature, pad friction) are tuning values, not measured; the force limits are the URDF `effort` values.
 
 The hand model is `unitree_robots/components/brainco_revo2/{left,right}.xml`, converted from [BrainCoTech/revo2_description](https://github.com/BrainCoTech/revo2_description) v1.1.1 (Apache-2.0, `LICENSE` in that directory; kinematics, limits, masses and mimic ratios as in the URDF, meshes decimated to about 2 MB for both hands). Each fingertip has a `touch` sensor and a `contact` sensor on a box site around its tactile pad. The wrist mounting (hand base 0.0591 m from the wrist yaw joint, the wrist flange `g1_adapter_<side>.xml`, the wrist yaw link inertia without the rubber hand) comes from `unitree_ros` `robots/g1_with_brainco_hand`.
+
+### G1 with Unitree Dex3-1 hands
+```bash
+./unitree_mujoco -r g1_dex3 -s scene_29dof.xml
+```
+`simulate/robots/g1_dex3.yaml` is built like `g1_brainco`: the plain G1 scenes (`scene_dir: g1`), a Dex3-1 hand attached to each wrist at load time, G1 motors mapped by name so `rt/lowcmd` / `rt/lowstate` keep the 29-motor numbering, and all G1 topics as for `-r g1`. The hands use the topics of the real robot (`unitree_sdk2` `example/g1/dex3/g1_dex3_example.cpp`, `unitree_ros2` `example/src/src/g1/dex3`), per hand:
+
+| Topic | Type | Content |
+|---|---|---|
+| `rt/dex3/<side>/cmd` | `unitree_hg::msg::dds_::HandCmd_` | 7 `motor_cmd` in the order `[thumb_0, thumb_1, thumb_2, middle_0, middle_1, index_0, index_1]`; each motor applies `tau + kp * (q - q_meas) + kd * (dq - dq_meas)` (rad, rad/s, N m), clamped to the joint's effort limit |
+| `rt/dex3/<side>/state` | `unitree_hg::msg::dds_::HandState_` | 100 Hz: 7 `motor_state` (`q`, `dq`, `tau_est` = joint actuator torque), 9 `press_sensor_state`, `imu_state` (palm IMU) |
+| `rt/lf/dex3/<side>/state` | `unitree_hg::msg::dds_::HandState_` | the same message at 10 Hz (the SDK example subscribes to this one) |
+
+`mode` of a `motor_cmd` is the packed `RIS_Mode_t` of the example (bits 0-3 id, bits 4-6 status, bit 7 timeout): a motor whose status is 0 (also before the first command) gets zero torque, any other status enables the PD law; id and timeout are ignored. Commands are not CRC-checked (`HandCmd_` has no CRC). In the state, `mode` = `id | enabled << 4`. ROS 2 clients see `/dex3/<side>/cmd`, `/dex3/<side>/state`, `/lf/dex3/<side>/state` with `unitree_hg/msg/HandCmd` / `HandState`.
+
+Component parameters (`{type: dex3_hand, side: left}`): `side` (required), `prefix` (names of the attached hand's elements, default `<side>_`), `topic` (default `rt/dex3/<side>`), `hz` (default 100), `lf_hz` (default 10, 0 disables the `rt/lf/...` topic).
+
+Tactile: the hand model has 9 `touch` sensors per hand (`<side>_hand_press_0..8`, boxes on the inner side of the links). Their normal force in N is published in `press_sensor_state[i].pressure[0]`; the other 11 pressure entries, all `temperature` entries and `lost` stay 0. They are computed inside `mj_step`. Order: `press_sensor_state[0..2]` thumb (`thumb_1` link, `thumb_2` proximal half, `thumb_2` distal half), `[3..5]` middle (`middle_0` link, `middle_1` proximal half, `middle_1` distal half), `[6..8]` index (same), proximal to distal.
+
+Sources and what was guessed:
+- Topic names, `HandCmd_` / `HandState_` types, 7 motors and their order, 9 pressure sensors, the `mode` bit layout, the `rt/lf/dex3/<side>/state` topic: the SDK example and the unitree_ros2 example (`motor_cmd.resize(7)`, `press_sensor_state.resize(9)`, `RIS_Mode_t`), `unitree_hg` message definitions. Joint limits, effort limits, masses, inertias and kinematics: `unitree_ros` `robots/dexterous_hand_description/dex3_1/dex3_1_{l,r}.urdf`. Wrist mounting (palm at `(0.0415, +-0.003, 0)` of the wrist yaw link, wrist yaw inertia without the rubber hand): `robots/g1_description/g1_29dof_with_hand.urdf`.
+- Guessed: the 100 Hz / 10 Hz rates (no reference states them); that status 0 means unpowered; the tactile layout and which link areas the 9 sensors cover (nothing in the references documents it), and that only `pressure[0]` of each is used; `power_v`, `system_v`, `device_v` = 24 and `power_a` = 0.1 (constants), `ddq`, `temperature`, `vol`, `sensor`, `motorstate`, `error`, `reserve` = 0; the palm IMU is a MuJoCo IMU at the palm frame origin; no state publication timeout or command watchdog. Dynamics (joint damping 0.01, armature 0.002, friction loss 0.001, geometry friction) are tuning values; the armature keeps the explicit 1 kHz PD with `kd` = 0.1 stable on the light finger links.
+- The `thumb_1` limits of the URDF (-0.611 .. 1.047 left, -1.047 .. 0.611 right) differ from the constants in the SDK example (-0.724 .. 1.05 left, -1.05 .. 0.742 right); the model uses the URDF.
+
+The hand model is `unitree_robots/components/dex3_1/{left,right}.xml` (BSD-3-Clause like `unitree_ros`; meshes decimated, about 1.3 MB for both hands). Collision uses the (decimated) link meshes, and a box for `thumb_1` as in the URDF.
 
 ### Perception topics (Go2 L1 lidar, `rt/utlidar/*`)
 A real Go2 publishes, next to the motor topics, the topics of its L1 lidar and of its state estimator. The simulator publishes the ones whose type ships with unitree_sdk2 and whose content can be derived from the simulation; request/response services (`rt/api/*`) are out of scope. They are enabled in `simulate/robots/go2.yaml`:
