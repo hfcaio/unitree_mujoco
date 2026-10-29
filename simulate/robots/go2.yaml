@@ -1,3 +1,5 @@
-# Go2 uses the unitree_go IDL and only the base topics (lowstate, lowcmd, sportmodestate, wirelesscontroller).
+# Go2 uses the unitree_go IDL and the base topics (lowstate, lowcmd, sportmodestate, wirelesscontroller) plus their low-rate lf/* variants.
 idl: go
-components: []
+components:
+  - lf_lowstate        # rt/lf/lowstate (rt/lowstate at 1/10 of the rate)
+  - lf_sportmodestate  # rt/lf/sportmodestate (rt/sportmodestate at 1/10 of the rate)

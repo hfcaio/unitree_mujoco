@@ -3,12 +3,29 @@
 #include <mujoco/mujoco.h>
 #include <yaml-cpp/yaml.h>
 
+#include <unitree/dds_wrapper/common/unitree_joystick.hpp>
+#include <unitree/idl/go2/LowState_.hpp>
+#include <unitree/idl/go2/SportModeState_.hpp>
+#include <unitree/idl/hg/LowState_.hpp>
+
 #include <functional>
 #include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+// What the base bridge exposes to its components: read-only snapshots of the messages it
+// published on the last tick (rt/lowstate, rt/sportmodestate), so a component can republish
+// them (e.g. the low-rate lf/* topics) without duplicating the logic that fills them.
+// Exactly one of go_lowstate / hg_lowstate is set, matching the robot's IDL.
+struct BridgeContext
+{
+    const unitree_go::msg::dds_::LowState_ *go_lowstate = nullptr;
+    const unitree_hg::msg::dds_::LowState_ *hg_lowstate = nullptr;
+    const unitree_go::msg::dds_::SportModeState_ *sportmodestate = nullptr;
+    std::shared_ptr<unitree::common::UnitreeJoystick> joystick;
+};
 
 // A BridgeComponent is one self-contained piece of the robot <-> DDS bridge
 // (e.g. the torso IMU topic). Components are listed per robot in
@@ -50,7 +67,7 @@ protected:
 class ComponentRegistry
 {
 public:
-    using Factory = std::function<std::unique_ptr<BridgeComponent>(mjModel *, mjData *, const YAML::Node &)>;
+    using Factory = std::function<std::unique_ptr<BridgeComponent>(mjModel *, mjData *, const YAML::Node &, const BridgeContext &)>;
 
     static ComponentRegistry &instance()
     {
@@ -72,13 +89,14 @@ public:
     }
 
     std::unique_ptr<BridgeComponent> create(const std::string &name, mjModel *model, mjData *data,
-                                            const YAML::Node &params = YAML::Node()) const
+                                            const YAML::Node &params = YAML::Node(),
+                                            const BridgeContext &ctx = BridgeContext()) const
     {
         auto it = factories_.find(name);
         if (it == factories_.end()) {
             throw std::invalid_argument("unknown bridge component '" + name + "' (available: " + names() + ")");
         }
-        return it->second(model, data, params);
+        return it->second(model, data, params, ctx);
     }
 
 private:

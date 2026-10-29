@@ -2,4 +2,6 @@
 idl: hg
 components:
   - secondary_imu  # rt/secondary_imu
+  - lf_lowstate    # rt/lf/lowstate
+  - lf_sportmodestate  # rt/lf/sportmodestate
   - bms_state      # rt/lf/bmsstate

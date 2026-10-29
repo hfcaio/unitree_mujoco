@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "bridge_component.h"
@@ -200,8 +201,16 @@ public:
         highstate = std::make_unique<HighState_t>();
         wireless_controller = std::make_unique<WirelessController_t>();
         wireless_controller->joystick = joystick;
+        BridgeContext context;
+        if constexpr (std::is_same_v<typename LowState_t::MsgType, unitree_go::msg::dds_::LowState_>) {
+            context.go_lowstate = &lowstate_snapshot_;
+        } else {
+            context.hg_lowstate = &lowstate_snapshot_;
+        }
+        context.sportmodestate = &highstate_snapshot_;
+        context.joystick = joystick;
         for (const auto &spec : def.components) {
-            components_.push_back(ComponentRegistry::instance().create(spec.type, model, data, spec.params));
+            components_.push_back(ComponentRegistry::instance().create(spec.type, model, data, spec.params, context));
         }
     }
 
@@ -263,6 +272,7 @@ public:
             }
             
             lowstate->msg_.tick() = std::round(mj_data_->time / 1e-3);
+            lowstate_snapshot_ = lowstate->msg_;
             lowstate->unlockAndPublish();
         }
         // highstate
@@ -277,6 +287,7 @@ public:
                 highstate->msg_.velocity()[1] = mj_data_->sensordata[frame_vel_adr_ + 1];
                 highstate->msg_.velocity()[2] = mj_data_->sensordata[frame_vel_adr_ + 2];
             }
+            highstate_snapshot_ = highstate->msg_;
             highstate->unlockAndPublish();
         }
         // wireless_controller
@@ -295,6 +306,9 @@ public:
     std::unique_ptr<LowState_t> lowstate;
     
 private:
+    // Copies of what was last published, for the components (see BridgeContext)
+    typename LowState_t::MsgType lowstate_snapshot_{};
+    typename HighState_t::MsgType highstate_snapshot_{};
     unitree::common::RecurrentThreadPtr thread_;
     std::vector<std::unique_ptr<BridgeComponent>> components_;
 };

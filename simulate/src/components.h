@@ -5,6 +5,8 @@
 #include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/dds_wrapper/common/Publisher.h>
 #include <unitree/dds_wrapper/common/Subscription.h>
+#include <unitree/dds_wrapper/robots/g1/g1.h>
+#include <unitree/dds_wrapper/robots/go2/go2.h>
 #include <unitree/idl/hg/BmsState_.hpp>
 #include <unitree/idl/hg/IMUState_.hpp>
 #include <unitree/idl/hg/MotorCmd_.hpp>
@@ -167,11 +169,102 @@ private:
     std::unique_ptr<State_t> state_;
 };
 
+// Low-rate republishing of a topic the base bridge already fills. The bridge ticks at 1 kHz;
+// the component publishes every `rate_div`-th tick. Params: `rate_div` (default 10) or `hz`.
+class LowRateComponent : public BridgeComponent
+{
+protected:
+    LowRateComponent(mjModel *model, mjData *data, const YAML::Node &params, const char *name)
+        : BridgeComponent(model, data)
+    {
+        if (params["hz"]) {
+            div_ = static_cast<int>(std::lround(kBridgeHz / params["hz"].as<double>()));
+        } else if (params["rate_div"]) {
+            div_ = params["rate_div"].as<int>();
+        }
+        if (div_ < 1) {
+            throw std::invalid_argument(std::string(name) + ": rate_div must be >= 1 and hz <= 1000");
+        }
+    }
+
+    // True on the ticks this component should publish on.
+    bool due() { return (tick_++ % div_) == 0; }
+
+private:
+    static constexpr double kBridgeHz = 1000.0;
+    int div_ = 10;
+    unsigned long tick_ = 0;
+};
+
+// rt/lf/lowstate: rt/lowstate at a lower rate. unitree_go::LowState_ or unitree_hg::LowState_
+// depending on the robot's IDL.
+class LfLowStateComponent : public LowRateComponent
+{
+public:
+    LfLowStateComponent(mjModel *model, mjData *data, const YAML::Node &params, const BridgeContext &ctx)
+        : LowRateComponent(model, data, params, "lf_lowstate"), ctx_(ctx)
+    {
+        if (ctx.go_lowstate) {
+            go_ = std::make_unique<unitree::robot::go2::publisher::LowState>("rt/lf/lowstate");
+            go_->joystick = ctx.joystick;
+        } else {
+            hg_ = std::make_unique<unitree::robot::g1::publisher::LowState>("rt/lf/lowstate");
+            hg_->joystick = ctx.joystick;
+        }
+    }
+
+    void step() override
+    {
+        if (!due()) {
+            return;
+        }
+        if (go_) {
+            if (go_->trylock()) {
+                go_->msg_ = *ctx_.go_lowstate;
+                go_->unlockAndPublish();
+            }
+        } else if (hg_->trylock()) {
+            hg_->msg_ = *ctx_.hg_lowstate;
+            hg_->unlockAndPublish();
+        }
+    }
+
+private:
+    BridgeContext ctx_;
+    std::unique_ptr<unitree::robot::go2::publisher::LowState> go_;
+    std::unique_ptr<unitree::robot::g1::publisher::LowState> hg_;
+};
+
+// rt/lf/sportmodestate (unitree_go::SportModeState_): rt/sportmodestate at a lower rate.
+class LfSportModeStateComponent : public LowRateComponent
+{
+public:
+    LfSportModeStateComponent(mjModel *model, mjData *data, const YAML::Node &params, const BridgeContext &ctx)
+        : LowRateComponent(model, data, params, "lf_sportmodestate"), ctx_(ctx),
+          pub_(std::make_unique<unitree::robot::go2::publisher::SportModeState>("rt/lf/sportmodestate"))
+    {
+    }
+
+    void step() override
+    {
+        if (due() && pub_->trylock()) {
+            pub_->msg_ = *ctx_.sportmodestate;
+            pub_->unlockAndPublish();
+        }
+    }
+
+private:
+    BridgeContext ctx_;
+    std::unique_ptr<unitree::robot::go2::publisher::SportModeState> pub_;
+};
+
 inline void RegisterBuiltinComponents()
 {
     auto &registry = ComponentRegistry::instance();
-    registry.add("secondary_imu", [](mjModel *m, mjData *d, const YAML::Node &) { return std::make_unique<SecondaryImuComponent>(m, d); });
-    registry.add("bms_state", [](mjModel *m, mjData *d, const YAML::Node &) { return std::make_unique<BmsStateComponent>(m, d); });
-    registry.add("waist_pitch", [](mjModel *m, mjData *d, const YAML::Node &p) { return std::make_unique<WaistPitchComponent>(m, d, p); });
-    registry.add("hispeed_state", [](mjModel *m, mjData *d, const YAML::Node &p) { return std::make_unique<HispeedStateComponent>(m, d, p); });
+    registry.add("secondary_imu", [](mjModel *m, mjData *d, const YAML::Node &, const BridgeContext &) { return std::make_unique<SecondaryImuComponent>(m, d); });
+    registry.add("bms_state", [](mjModel *m, mjData *d, const YAML::Node &, const BridgeContext &) { return std::make_unique<BmsStateComponent>(m, d); });
+    registry.add("waist_pitch", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<WaistPitchComponent>(m, d, p); });
+    registry.add("hispeed_state", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<HispeedStateComponent>(m, d, p); });
+    registry.add("lf_lowstate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfLowStateComponent>(m, d, p, c); });
+    registry.add("lf_sportmodestate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfSportModeStateComponent>(m, d, p, c); });
 }

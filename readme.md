@@ -16,6 +16,7 @@
 - `LowState`: Motor state information
 - `SportModeState`: Robot position and velocity data
 - `IMUState`: Torso IMU state at `rt/secondary_imu` topic (G1 only)
+- `rt/lf/lowstate` (`LowState`) and `rt/lf/sportmodestate` (`SportModeState`): the low-frequency variants of `rt/lowstate` and `rt/sportmodestate` (ROS 2: `/lf/lowstate`, `/lf/sportmodestate`), published for robots whose definition lists the `lf_lowstate` / `lf_sportmodestate` components (Go2, G1, G1-D), by default every 10th bridge tick
 
 Note:
 1. The numbering of the motors corresponds to the actual robot hardware. Specific details can be found in the [Unitree documentation](https://support.unitree.com/home/zh/developer).
@@ -182,14 +183,18 @@ idl: hg          # go | hg, optional (otherwise decided from the number of actua
 components:
   - secondary_imu  # rt/secondary_imu
   - bms_state      # rt/lf/bmsstate
+  - lf_lowstate    # rt/lf/lowstate, a copy of rt/lowstate at a lower rate
+  - {type: lf_sportmodestate, hz: 50}   # rt/lf/sportmodestate at 50 Hz
 ```
+The `lf_*` components republish what the base bridge publishes on `rt/lowstate` / `rt/sportmodestate`. Rate parameter: `rate_div` (publish every N-th bridge tick, default 10) or `hz` (the bridge ticks at up to 1000 Hz). `lf_lowstate` uses the `unitree_go` or `unitree_hg` type matching the robot's IDL; `rt/lf/sportmodestate` is always `unitree_go::SportModeState_`.
+
 A `motors:` map (`DDS motor index: actuator name`) lets a model hold actuators that are not DDS motors, such as the G1-D wheels and lifting column; without it, actuator `i` is DDS motor `i`. A component can take parameters, e.g. `- {type: waist_pitch, actuator: waist_pitch}`.
 
 ### G1-D
 ```bash
 ./unitree_mujoco -r g1_d -s scene.xml
 ```
-Model converted from `unitreerobotics/unitree_ros` (`g1_d_description`), without hands (hand mount sites: `left_hand_mount`, `right_hand_mount`). Topics: `rt/lowcmd` / `rt/lowstate` (29-motor G1 numbering: waist yaw = 12, arms = 15-28, legs unused), `rt/waistpitchcmd` / `rt/waistpitchstate`, `rt/hispeed_state` (`y` = column height in m), `rt/secondary_imu`, `rt/lf/bmsstate`, `rt/sportmodestate`. The wheels and the column are not DDS motors on the real robot (they use the `agv` service, not simulated yet); in the viewer you can drive the `left_wheel`, `right_wheel` and `lift` actuators with the control sliders. The four small caster spheres under the chassis are a stand-in so the base stays upright.
+Model converted from `unitreerobotics/unitree_ros` (`g1_d_description`), without hands (hand mount sites: `left_hand_mount`, `right_hand_mount`). Topics: `rt/lowcmd` / `rt/lowstate` (29-motor G1 numbering: waist yaw = 12, arms = 15-28, legs unused), `rt/waistpitchcmd` / `rt/waistpitchstate`, `rt/hispeed_state` (`y` = column height in m), `rt/secondary_imu`, `rt/lf/bmsstate`, `rt/lf/lowstate`, `rt/sportmodestate`, `rt/lf/sportmodestate`. The wheels and the column are not DDS motors on the real robot (they use the `agv` service, not simulated yet); in the viewer you can drive the `left_wheel`, `right_wheel` and `lift` actuators with the control sliders. The four small caster spheres under the chassis are a stand-in so the base stays upright.
 
 Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h`.
 

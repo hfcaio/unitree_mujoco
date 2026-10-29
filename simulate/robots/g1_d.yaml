@@ -23,6 +23,8 @@ motors:
   28: right_wrist_yaw
 components:
   - secondary_imu                                   # rt/secondary_imu
+  - lf_lowstate                                     # rt/lf/lowstate
+  - lf_sportmodestate                               # rt/lf/sportmodestate
   - bms_state                                       # rt/lf/bmsstate
   - {type: waist_pitch, actuator: waist_pitch}      # rt/waistpitchcmd, rt/waistpitchstate
   - {type: hispeed_state, sensor: lift_pos}         # rt/hispeed_state (y = column height)
