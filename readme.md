@@ -17,6 +17,7 @@
 - `SportModeState`: Robot position and velocity data
 - `IMUState`: Torso IMU state at `rt/secondary_imu` topic (G1 only)
 - `rt/lf/lowstate` (`LowState`) and `rt/lf/sportmodestate` (`SportModeState`): the low-frequency variants of `rt/lowstate` and `rt/sportmodestate` (ROS 2: `/lf/lowstate`, `/lf/sportmodestate`), published for robots whose definition lists the `lf_lowstate` / `lf_sportmodestate` components (Go2, G1, G1-D), by default every 10th bridge tick
+- `rt/utlidar/cloud`, `rt/utlidar/cloud_deskewed`, `rt/utlidar/foot_position` (`sensor_msgs/PointCloud2`), `rt/utlidar/imu` (`sensor_msgs/Imu`), `rt/utlidar/robot_odom` (`nav_msgs/Odometry`), `rt/utlidar/robot_pose` (`geometry_msgs/PoseStamped`), `rt/utlidar/lidar_state` (`unitree_go::LidarState_`): the Go2 L1 lidar (ray cast against the scene) and state-estimation topics (ROS 2: `/utlidar/...`), see [Perception topics](#perception-topics-go2-l1-lidar-rtutlidar)
 - `rt/brainco/{left,right}/cmd` (`unitree_go::MotorCmds_`), `rt/brainco/{left,right}/state` (`unitree_go::MotorStates_`) and `rt/brainco/{left,right}/touch` (`unitree_hg::PressSensorState_`, simulator only): BrainCo Revo2 hands on the G1 (`-r g1_brainco`), see [G1 with BrainCo hands](#g1-with-brainco-revo2-hands)
 
 Note:
@@ -221,6 +222,58 @@ Sources and what was assumed:
 
 The hand model is `unitree_robots/components/brainco_revo2/{left,right}.xml`, converted from [BrainCoTech/revo2_description](https://github.com/BrainCoTech/revo2_description) v1.1.1 (Apache-2.0, `LICENSE` in that directory; kinematics, limits, masses and mimic ratios as in the URDF, meshes decimated to about 2 MB for both hands). Each fingertip has a `touch` sensor and a `contact` sensor on a box site around its tactile pad. The wrist mounting (hand base 0.0591 m from the wrist yaw joint, the wrist flange `g1_adapter_<side>.xml`, the wrist yaw link inertia without the rubber hand) comes from `unitree_ros` `robots/g1_with_brainco_hand`.
 
+### Perception topics (Go2 L1 lidar, `rt/utlidar/*`)
+A real Go2 publishes, next to the motor topics, the topics of its L1 lidar and of its state estimator. The simulator publishes the ones whose type ships with unitree_sdk2 and whose content can be derived from the simulation; request/response services (`rt/api/*`) are out of scope. They are enabled in `simulate/robots/go2.yaml`:
+```yaml
+components:
+  - {type: utlidar_cloud, hz: 15, points: 1440}  # rt/utlidar/cloud + rt/utlidar/cloud_deskewed
+  - utlidar_imu            # rt/utlidar/imu
+  - utlidar_lidar_state    # rt/utlidar/lidar_state
+  - utlidar_robot_odom     # rt/utlidar/robot_odom
+  - utlidar_robot_pose     # rt/utlidar/robot_pose
+  - utlidar_foot_position  # rt/utlidar/foot_position
+```
+The topic list of a real Go2 is the `ros2 topic list` screenshot in the unitree_ros2 README (`docs/image/piFtteJ.png`). For each topic (DDS name = `rt` + ROS 2 name):
+
+| ROS 2 topic | Type (unitree_sdk2 header) | Carries | Simulated |
+|---|---|---|---|
+| `/utlidar/cloud` | `sensor_msgs/PointCloud2` (`idl/ros2/PointCloud2_.hpp`) | L1 point cloud, frame `utlidar_lidar` | yes, `utlidar_cloud` (ray casting) |
+| `/utlidar/cloud_deskewed` | `sensor_msgs/PointCloud2` | motion-compensated cloud | yes, `utlidar_cloud`: the same scan in the world frame `odom` (a simulated scan is taken at one instant, so it has no motion distortion) |
+| `/utlidar/foot_position` | `sensor_msgs/PointCloud2` | foot positions | yes, `utlidar_foot_position` |
+| `/utlidar/imu` | `sensor_msgs/Imu` (`idl/ros2/Imu_.hpp`) | the lidar's IMU | yes, `utlidar_imu` |
+| `/utlidar/lidar_state` | `unitree_go/LidarState` (`idl/go2/LidarState_.hpp`) | lidar status | yes, `utlidar_lidar_state` |
+| `/utlidar/robot_odom` | `nav_msgs/Odometry` (`idl/ros2/Odometry_.hpp`) | estimated base odometry | yes, `utlidar_robot_odom` (ground truth) |
+| `/utlidar/robot_pose` | `geometry_msgs/PoseStamped` (`idl/ros2/PoseStamped_.hpp`) | estimated base pose | yes, `utlidar_robot_pose` (ground truth) |
+| `/utlidar/height_map`, `/utlidar/height_map_array` | probably `unitree_go/HeightMap` (`idl/go2/HeightMap_.hpp`) | elevation map around the robot | no: which topic uses the type, and the map's size, resolution, origin and filling rules are not documented; it would be invented |
+| `/utlidar/grid_map`, `/utlidar/range_map`, `/utlidar/range_info`, `/utlidar/voxel_map`, `/utlidar/map_state` | not documented | maps / ranges of the on-board mapping | no: type unknown |
+| `/utlidar/voxel_map_compressed` | `unitree_go/VoxelMapCompressed` (`idl/go2/VoxelMapCompressed_.hpp`) | compressed voxel map | no: the compression format is not documented |
+| `/utlidar/switch`, `/utlidar/mapping_cmd` | not documented | commands to the lidar / mapping (inputs) | no: type and semantics unknown |
+| `/uwbstate` | `unitree_go/UwbState` (`idl/go2/UwbState_.hpp`) | UWB follow tag (remote) state | no: there is no tag in the simulation, constant values would be meaningless |
+| `/uwbswitch` | `unitree_go/UwbSwitch` | enable UWB (input) | no, as `/uwbstate` |
+| `/servicestate`, `/servicestateactivate`, `/selftest` | not documented | status of the robot's internal services / self test | no: describes on-board services that the simulator does not have (the SDK reads the service list through the `robot_state` RPC, out of scope) |
+| `/frontvideostream` | `unitree_go/Go2FrontVideoData` | front camera, H.264 | no: needs off-screen rendering and video encoding |
+| `/audiosender`, `/audioreceiver` | `unitree_go/AudioData` | microphone / speaker audio | no: no audio in the simulation |
+| `/webrtcreq`, `/webrtcres`, `/rtc_status`, `/public_network_status`, `/gptflowfeedback` | not documented | app / WebRTC / cloud connectivity and the voice assistant | no: not robot state |
+| `/parameter_events`, `/rosout` | ROS 2 standard | created by every ROS 2 node on the robot | no: infrastructure of ROS 2 nodes, any ROS 2 tool creates them itself |
+
+G1: the topics of a real G1 found in unitree_sdk2 / unitree_ros2 besides the motor topics are `rt/secondary_imu`, `rt/lf/lowstate`, `rt/lf/sportmodestate`, `rt/lf/bmsstate` and the hand topics, all already simulated. The G1 carries a Livox MID-360 lidar and a RealSense D435 (`mid360_link` / `d435_link` in the unitree_ros G1 URDFs), but no repository documents topics for them (they come from the vendors' ROS drivers, not from unitree DDS), so the G1 definitions enable no perception component. `utlidar_cloud` can still be mounted on any robot, for example a MID-360-like pattern on the G1 torso (topic and frame of your choice):
+```yaml
+  - {type: utlidar_cloud, body: torso_link, pos: [0.0002835, 0.00003, 0.40618], rpy: [0, 0.0401426, 0],
+     v_fov: [-7, 52], points: 4000, hz: 10, range: [0.1, 40], topic: rt/mid360/cloud, frame_id: mid360_link, deskewed_topic: ""}
+```
+
+**`utlidar_cloud`** casts rays from the lidar mount against the MuJoCo scene (geoms of groups 0-2, i.e. the scene and the robot's visual meshes, except the mount body) and publishes the hits. Message layout as on the robot (unitree_ros2 README / `docs/image/piFtdF1.png`): `height` 1, `is_dense` true, `point_step` 32, 6 fields `x`, `y`, `z` (float32 at 0, 4, 8), `intensity` (float32 at 16), `ring` (uint16 at 20), `time` (float32 at 24, seconds since the scan start), frame `utlidar_lidar`, about 1400 points per message at 15 Hz (the screenshot shows 1395-1405 points 67 ms apart). Like the L1's non-repetitive scan, each scan casts `points` rays along a low-discrepancy sequence over the field of view (uniform per solid angle) that continues from scan to scan, so successive scans fill the field of view. With the default 1440 rays a scan has about 1350 hits on `scene.xml` and 1390 on `scene_terrain.xml` (robot lying on the floor; rays above the horizon have no return). `intensity` is the luminance of the hit geom's colour (0-255), `ring` an elevation bin (`rings` bins), `time` the ray's index times scan period / `points` (the whole scan uses one snapshot of the state). The mount is the site `utlidar` added to `unitree_robots/go2/go2.xml` at the pose of the `radar` link of the unitree_ros `go2_description` (0.28945, 0, -0.046825 from `base_link`, pitch 2.8782 rad: the dome faces forward-down). Parameters: `site` (default `utlidar`) or `body` + `pos` + `rpy`; `hz` (15); `points` (1440 rays per scan); `h_fov` ([-180, 180] deg, azimuth about the sensor z axis); `v_fov` ([0, 90] deg, elevation above the sensor xy plane; the L1 FOV is 360 x 90 deg); `range` ([0.05, 30] m); `rings` (18); `noise` (0, range std. dev. in m); `geomgroups` ([0, 1, 2]); `exclude_body` (default the mount body, `none` to hit it); `topic` (`rt/utlidar/cloud`); `frame_id` (`utlidar_lidar`); `deskewed_topic` (`rt/utlidar/cloud_deskewed`, `""` to disable); `deskewed_frame_id` (`odom`).
+
+Threading: the bridge thread is not the physics thread, and `mj_ray` / `mj_multiRay` use the `mjData` stack, so the lidar never casts rays on the simulation's `mjData`. It runs in its own thread at `hz`: it takes the physics mutex (the one `mj_step` runs under) only to copy `qpos` and the mocap poses into a private `mjData`, releases it, then runs `mj_kinematics` and `mj_multiRay` on the private copy. The physics thread waits at most for that copy, and the 1 kHz bridge tick does not run the scan. Cost (MuJoCo 3.3.6): a ray against primitives and height fields is cheap (1440 rays in 0.2-0.6 ms), a ray that reaches the bounding box of a mesh is expensive (about 10 us per ray near the G1's meshes). The default Go2 scan takes 1-3 ms (it faces away from the robot's meshes); the G1 example above takes about 50 ms per 4000 rays. If a scan takes longer than `1 / hz`, the next one starts right away (the rate drops, one core stays busy); `geomgroups` can leave out mesh groups. On the test machine `-r go2 -s scene_terrain.xml` runs at real time with the default lidar and with 20000 rays at 30 Hz, with the bridge tick rate unchanged.
+
+**Other components** (each has `hz` and `topic`; rates are those of the bridge tick divider, like `lf_*`):
+- `utlidar_imu` (default 250 Hz, frame `utlidar_imu`): the base IMU sensors (`imu_quat`, `imu_gyro`, `imu_acc`) rotated into the lidar frame (site `site`, default `utlidar`, on the IMU's body); orientation = lidar frame in the world; the lever-arm terms of the acceleration are ignored.
+- `utlidar_robot_odom` (50 Hz, frame `odom`, child `base_link`) and `utlidar_robot_pose` (50 Hz, frame `odom`): the `base_link` pose in the world (from the same IMU-site sensors as `rt/sportmodestate`, moved to the body origin); odometry twist in the child frame. Ground truth: no drift, unlike the robot's estimator. Parameters `frame_id`, `child_frame_id`.
+- `utlidar_foot_position` (50 Hz, frame `odom`): one point per foot (x, y, z float32, `point_step` 12) at the foot body origins (`bodies`, default `[FR_foot, FL_foot, RR_foot, RL_foot]`, the Unitree leg order). The foot bodies are posed on a private `mjData` refreshed with a non-blocking `try_lock` of the physics mutex.
+- `utlidar_lidar_state` (1 Hz): `cloud_frequency` (measured), `cloud_size` (points of the last scan), `cloud_scan_num`, `imu_frequency`, `imu_rpy` from the two components above; versions `sim`, `error_state` 0, the other fields 0. The SDK's `LidarState_` has a `dirty_percentage` field that unitree_ros2's `LidarState.msg` lacks; the simulator publishes the SDK type.
+
+Stamps use the wall clock, as on the robot (no `/clock`). What is taken from the references: the topic list, the types of `/utlidar/cloud`, `/utlidar/cloud_deskewed` and `/utlidar/foot_position`, the cloud's frame, layout size, point count and rate (unitree_ros2 README and its screenshots), the lidar mount (unitree_ros URDF), the message definitions (unitree_sdk2 IDL). Assumed: the types of `/utlidar/imu`, `/utlidar/robot_odom`, `/utlidar/robot_pose`, `/utlidar/lidar_state` (from their names and the SDK IDL), the field names and offsets of the cloud (the layout of the L1 SDK's point type, consistent with the 32-byte, 6-field screenshot), the frames other than `utlidar_lidar`, the foot cloud layout, all rates except the cloud's, the intensity model.
+
 ### Model composition (attachments)
 A robot definition can attach component models (hands, arms, ...) to its scene at load time:
 ```yaml
@@ -237,7 +290,7 @@ attachments:
 ```
 The simulator parses the scene and each component with MuJoCo's `mjSpec` API, attaches the first body of the component (with its actuators, sensors, equalities, contact excludes, assets and defaults) via `mjs_attach` under the prefix, and compiles (`simulate/src/robot_compose.h`). So actuator `index` of the left hand becomes `left_index`, sensor `index_touch` becomes `left_index_touch`; components look elements up by these names. Mesh paths of a component resolve against its own file's `meshdir`. A later attachment can mount on a body added by an earlier one. Robots without `attachments` are loaded with `mj_loadXML` as before. Because attachments add actuators, a robot with attachments needs a `motors:` map for its DDS motors. Reloading the model from the viewer rebuilds the same composition; a different file dropped on the viewer is loaded as is.
 
-Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h`.
+Robots without a definition file keep the previous behaviour (`unitree_hg` robots get both components above). `idl_type` in `config.yaml` or `-t` still overrides `idl`. Components are registered in `simulate/src/components.h` (perception components in `simulate/src/perception_components.h`).
 
 ### Python Simulator
 The configuration file for the Python simulator is located at `/simulate_python/config.py`:
