@@ -17,6 +17,7 @@
 #include "brainco_hand.h"
 #include "dex3_hand.h"
 #include "perception_components.h"
+#include "z1_arm.h"
 
 // rt/secondary_imu: torso IMU read from the secondary_imu_* sensors (G1).
 class SecondaryImuComponent : public BridgeComponent
@@ -244,6 +245,7 @@ inline void RegisterBuiltinComponents()
     registry.add("lf_lowstate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfLowStateComponent>(m, d, p, c); });
     registry.add("brainco_hand", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<BraincoHandComponent>(m, d, p); });
     registry.add("dex3_hand", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<Dex3HandComponent>(m, d, p); });
+    registry.add("z1_arm", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &) { return std::make_unique<Z1ArmComponent>(m, d, p); });
     registry.add("lf_sportmodestate", [](mjModel *m, mjData *d, const YAML::Node &p, const BridgeContext &c) { return std::make_unique<LfSportModeStateComponent>(m, d, p, c); });
     RegisterPerceptionComponents();
 }

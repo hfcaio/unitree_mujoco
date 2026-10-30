@@ -1,0 +1,39 @@
+# B2 quadruped with a Unitree Z1 arm (and gripper) on its back, unitree_go IDL.
+#
+#   ./unitree_mujoco -r b2_z1 -s scene.xml
+#
+# The body is the plain B2 model (scenes from unitree_robots/b2, so `-r b2` is unchanged); the arm
+# is attached at load time (see simulate/src/robot_compose.h). Mount: the Z1 base flange (link00)
+# stands on the B2 top plate (z = 0.088 m in base_link, the top of the base_link mesh), on the
+# centre line, facing forward like the unitree_ros aliengoZ1_description mount (no rotation). The
+# x offset (0.05 m) is a choice: with it the folded arm (all joints 0) clears the lidar dome at the
+# front (aliengoZ1 uses trunk_length / 2 - 0.07, which on the B2 puts the folded gripper into the lidar).
+scene_dir: b2
+idl: go
+# The arm adds actuators and sensors, so the B2 motors are mapped by name (same numbering as rt/lowcmd).
+motors:
+  0: FR_hip
+  1: FR_thigh
+  2: FR_calf
+  3: FL_hip
+  4: FL_thigh
+  5: FL_calf
+  6: RR_hip
+  7: RR_thigh
+  8: RR_calf
+  9: RL_hip
+  10: RL_thigh
+  11: RL_calf
+attachments:
+  # components/z1/z1.xml, names prefixed "z1_" (z1_joint1 .. z1_joint6, z1_jointGripper, actuators z1_gripper, ...)
+  - type: z1
+    prefix: z1_
+    mount: base_link
+    pos: [0.05, 0, 0.088]
+components:
+  - lf_lowstate        # rt/lf/lowstate (rt/lowstate at 1/10 of the rate)
+  - lf_sportmodestate  # rt/lf/sportmodestate (rt/sportmodestate at 1/10 of the rate)
+  # rt/z1/cmd (unitree_go MotorCmds_) and rt/z1/state (unitree_go MotorStates_, 500 Hz): a
+  # simulator-defined interface, the real Z1 has none on DDS (see readme.md). Params: prefix
+  # (default z1_), topic (default rt/z1), hz (500)
+  - z1_arm
