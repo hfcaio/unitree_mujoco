@@ -17,6 +17,7 @@
 #include "glfw_adapter.h"
 #undef private
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -718,6 +719,26 @@ int main(int argc, char **argv)
   if(param::config.robot_scene.is_relative()) {
     auto scene_dir = robot_def.scene_dir.empty() ? param::config.robot : robot_def.scene_dir;
     param::config.robot_scene = robots_dir / scene_dir / param::config.robot_scene;
+  }
+  if(!std::filesystem::exists(param::config.robot_scene)) {
+    // Most common mistake: a scene of another robot (e.g. scene_29dof.xml with -r g1_d). List the valid ones.
+    std::cerr << "Scene file not found: " << param::config.robot_scene.string() << std::endl;
+    auto dir = param::config.robot_scene.parent_path();
+    if(std::filesystem::is_directory(dir)) {
+      std::vector<std::string> scenes;
+      for(const auto &entry : std::filesystem::directory_iterator(dir)) {
+        if(entry.path().extension() == ".xml" && entry.path().filename().string().find("scene") == 0) {
+          scenes.push_back(entry.path().filename().string());
+        }
+      }
+      std::sort(scenes.begin(), scenes.end());
+      std::cerr << "Scenes available for robot '" << param::config.robot << "' (use -s <scene>):";
+      for(const auto &name : scenes) { std::cerr << " " << name; }
+      std::cerr << std::endl;
+    } else {
+      std::cerr << "There is no directory " << dir.string() << " (check -r)" << std::endl;
+    }
+    std::exit(EXIT_FAILURE);
   }
 
   // simulate object encapsulates the UI

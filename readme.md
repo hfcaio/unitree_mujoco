@@ -194,6 +194,18 @@ The `lf_*` components republish what the base bridge publishes on `rt/lowstate` 
 
 A `motors:` map (`DDS motor index: actuator name`) lets a model hold actuators that are not DDS motors, such as the G1-D wheels and lifting column; without it, actuator `i` is DDS motor `i`. A component can take parameters, e.g. `- {type: waist_pitch, actuator: waist_pitch}`.
 
+### Robots and scenes
+`-s` is looked up in the robot's scene directory; a wrong name prints the scenes that exist. Robots with a definition file in `simulate/robots/`:
+
+| Run | What |
+|---|---|
+| `-r go2 -s scene.xml` | Go2 (plus `rt/utlidar/*`) |
+| `-r b2_z1 -s scene.xml` | B2 with a Z1 arm and gripper |
+| `-r g1 -s scene_29dof.xml` (or `scene_23dof.xml`) | G1 |
+| `-r g1_brainco -s scene_29dof.xml` | G1 with BrainCo Revo2 hands |
+| `-r g1_dex3 -s scene_29dof.xml` | G1 with Dex3-1 hands |
+| `-r g1_d -s scene.xml` | G1-D (wheeled base, lifting column, arms) |
+
 ### G1-D
 ```bash
 ./unitree_mujoco -r g1_d -s scene.xml
