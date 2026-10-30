@@ -136,6 +136,15 @@
           ]);
 
           CYCLONEDDS_HOME = "${cyclonedds}";
+
+          # same DDS domain/interface as simulate/config.yaml (domain_id 1,
+          # interface "lo"), so `ros2 topic list` in this shell sees the sim.
+          # `lo` has no MULTICAST flag by default: `sudo ip link set lo multicast on`
+          ROS_DOMAIN_ID = "1";
+          RMW_IMPLEMENTATION = "rmw_cyclonedds_cpp";
+          CYCLONEDDS_URI = ''
+            <CycloneDDS><Domain><General><Interfaces><NetworkInterface name="lo" multicast="true"/></Interfaces><AllowMulticast>true</AllowMulticast></General><Discovery><ParticipantIndex>auto</ParticipantIndex><Peers><Peer address="localhost"/></Peers></Discovery></Domain></CycloneDDS>
+          '';
           CMAKE_PREFIX_PATH = "${unitree-sdk2}/lib/cmake";
 
           shellHook = ''
