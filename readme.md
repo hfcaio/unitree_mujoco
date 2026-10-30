@@ -195,16 +195,27 @@ The `lf_*` components republish what the base bridge publishes on `rt/lowstate` 
 A `motors:` map (`DDS motor index: actuator name`) lets a model hold actuators that are not DDS motors, such as the G1-D wheels and lifting column; without it, actuator `i` is DDS motor `i`. A component can take parameters, e.g. `- {type: waist_pitch, actuator: waist_pitch}`.
 
 ### Robots and scenes
-`-s` is looked up in the robot's scene directory; a wrong name prints the scenes that exist. Robots with a definition file in `simulate/robots/`:
+`./unitree_mujoco -r <robot> -s <scene>` (or `robot` / `robot_scene` in `config.yaml`). The scene is looked up in the robot's directory; a wrong name prints the scenes that exist. Every combination below was checked to load.
 
-| Run | What |
-|---|---|
-| `-r go2 -s scene.xml` | Go2 (plus `rt/utlidar/*`) |
-| `-r b2_z1 -s scene.xml` | B2 with a Z1 arm and gripper |
-| `-r g1 -s scene_29dof.xml` (or `scene_23dof.xml`) | G1 |
-| `-r g1_brainco -s scene_29dof.xml` | G1 with BrainCo Revo2 hands |
-| `-r g1_dex3 -s scene_29dof.xml` | G1 with Dex3-1 hands |
-| `-r g1_d -s scene.xml` | G1-D (wheeled base, lifting column, arms) |
+| `-r` robot | `-s` scene | What it is |
+|---|---|---|
+| `go2` | `scene.xml`, `scene_terrain.xml` | Go2 (with `rt/utlidar/*`, `rt/lf/*`) |
+| `go2w` | `scene.xml`, `scene_terrain.xml` | Go2-W |
+| `b2` | `scene.xml`, `scene_terrain.xml` | B2 |
+| `b2w` | `scene.xml`, `scene_terrain.xml` | B2-W |
+| `b2_z1` | `scene.xml`, `scene_terrain.xml` (the B2 scenes) | B2 with a Z1 arm and gripper |
+| `a2` | `scene_terrain.xml`, `qrc_map_sloped.xml` | A2 (`qrc_map_flat.xml` does not load: it references a mesh missing from the repository) |
+| `as2` | `scene_terrain.xml`, `plane_terrain.xml` | AS2 (`unitree_hg` IDL) |
+| `h1` | `scene.xml`, `scene_terrain.xml` | H1 |
+| `h1_2` | `scene.xml` | H1-2 |
+| `h2` | `scene.xml` | H2 |
+| `r1` | `scene.xml` | R1 |
+| `g1` | `scene_29dof.xml` (same as `scene.xml`), `scene_23dof.xml` | G1 |
+| `g1_brainco` | `scene_29dof.xml` (or `scene.xml`) | G1 29-DoF with BrainCo Revo2 hands (not the 23-DoF G1) |
+| `g1_dex3` | `scene_29dof.xml` (or `scene.xml`) | G1 29-DoF with Dex3-1 hands (not the 23-DoF G1) |
+| `g1_d` | `scene.xml` only | G1-D: wheeled base, lifting column, waist, arms (no hands) |
+
+The robots with a file in `simulate/robots/` (`go2`, `g1`, `g1_brainco`, `g1_dex3`, `g1_d`, `b2_z1`) publish the extra topics listed in their section; the others behave as before.
 
 ### G1-D
 ```bash

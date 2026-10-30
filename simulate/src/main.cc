@@ -727,8 +727,10 @@ int main(int argc, char **argv)
     if(std::filesystem::is_directory(dir)) {
       std::vector<std::string> scenes;
       for(const auto &entry : std::filesystem::directory_iterator(dir)) {
-        if(entry.path().extension() == ".xml" && entry.path().filename().string().find("scene") == 0) {
-          scenes.push_back(entry.path().filename().string());
+        // every xml except the robot models themselves (go2.xml, g1_29dof.xml, ...)
+        auto name = entry.path().filename().string();
+        if(entry.path().extension() == ".xml" && name.find(dir.filename().string()) != 0) {
+          scenes.push_back(name);
         }
       }
       std::sort(scenes.begin(), scenes.end());
